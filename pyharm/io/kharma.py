@@ -324,15 +324,15 @@ class KHARMAFile(DumpFile):
                 # New file format. Read whatever
                 if len(out.shape) == 4: # Always read the whole vector, even if we're returning an index
                     #print("Reading vector size ", fil.fid[var][(ib, slice(None)) + fil_slc].transpose(0,3,2,1).shape, " to loc size ", out[(slice(None),) + out_slc].shape)
-                    # try:
+                    try:
                         # Newer format: block, var, k, j, i on disk
                         if read_pad == 1:
                             out[(slice(None),) + out_slc] = fil.fid[var][(ib, slice(None)) + block_slc].transpose(0,3,2,1)
                         else:
                             out[(slice(None),) + out_slc] = fil.fid[var][(ib, slice(None)) + block_slc].transpose(0,3,2,1).repeat(read_pad, axis=1).repeat(read_pad, axis=2).repeat(read_pad, axis=3)
-                    # except (IndexError, ValueError):
-                    #     # Older format: block, k, j, i, var
-                    #     out[(slice(None),) + out_slc] = fil.fid[var][(ib,) + fil_slc + (slice(None),)].T
+                    except (IndexError, ValueError):
+                        # Older format: block, k, j, i, var
+                        out[(slice(None),) + out_slc] = fil.fid[var][(ib,) + block_slc + (slice(None),)].T
                 else: # Read a scalar, knocking off the extra index if necessary
                     #print("Reading scalar ", var, " on-disk size ", fil.fid[var].shape, " to loc size ", out[out_slc].shape)
                     #print("Using slice ", block_slc)
