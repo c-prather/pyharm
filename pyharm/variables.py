@@ -83,6 +83,8 @@ fns_dict = {# 4-vectors
             'Ptot': lambda dump: dump['Pg'] + dump['Pb'],
             'beta': lambda dump: dump['Pg'] / dump['Pb'],
             'sigma': lambda dump: dump['bsq'] / dump['RHO'],
+            'sigma_cold': lambda dump: dump['bsq'] / dump['RHO'],
+            'sigma_hot': lambda dump: dump['bsq'] / (dump['RHO'] + dump['gam'] * dump['UU']),
             'Theta': lambda dump: (dump['gam'] - 1) * dump['UU'] / dump['RHO'],
             # entropy
             'K': lambda dump: (dump['gam']-1.) * dump['UU'] * pow(dump['RHO'], -dump['gam']),
