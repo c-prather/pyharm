@@ -95,7 +95,8 @@ def _get_filter_class(fname):
     elif ".h5" in fname:
         with h5py.File(fname, 'r') as f:
             if 'header' in f.keys():
-                if 'KORAL' in f["/header/version"][()].decode('UTF-8'):
+                if 'version' in f["/header"].keys() and \
+                    'KORAL' in f["/header/version"][()].decode('UTF-8'):
                     return KORALFile
                 else:
                     return Iharm3DFile

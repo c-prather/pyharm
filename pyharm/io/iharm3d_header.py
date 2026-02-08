@@ -159,6 +159,18 @@ def read_hdr(grp):
                 for sub_key in geom[key]:
                     params[sub_key] = geom[key+'/'+sub_key][()]
 
+        # Try to parse the iharm3d header
+        # Eventually MMKS meant something different, but in v1 library
+        # it is what we now call FMKS
+        if 'mks' in geom:
+            params['base'] = 'spherical_ks'
+            params['transform'] = 'mks'
+        elif 'fmks' in geom or 'mmks' in geom:
+            params['base'] = 'spherical_ks'
+            params['transform'] = 'fmks'
+        else:
+            raise KeyError
+
     except KeyError as e:
         print("Warning: {}".format(e))
         print("File is older than supported, but pyharm will attempt to continue".format(e))

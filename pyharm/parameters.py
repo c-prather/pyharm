@@ -169,12 +169,22 @@ def fix(params):
     if (not 'r_out' in params) and 'Rout' in params:
         params['r_out'] = params['Rout']
 
-    if 'config' in params:
+    try:
         params['electrons'] = to_number(params['config']['electrons']['on'])
+    except:
+        try:
+            params['electrons'] = to_number(params['config']['electrons'])
+        except:
+            params['electrons'] = 0
+
+    try:
         params['emhd'] = to_number(params['config']['emhd']['on'])
-    else:
-        params['electrons'] = 0
-        params['emhd'] = 0
+    except:
+        try:
+            params['electrons'] = to_number(params['config']['emhd'])
+        except:
+            params['electrons'] = 0
+
 
     if not ('prim_names' in params):
         if 'electrons' in params and params['electrons']:
