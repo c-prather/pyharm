@@ -528,7 +528,7 @@ class Grid:
         elif key in dir(self.coords):
             return True
         elif key[:7] == 'pcoord_':
-            return key[8:] in self
+            return True
         elif key in ('n1', 'n2', 'n3', 'r1d', 'th1d', 'phi1d', 'x', 'y', 'z',
                      'X', 'X1', 'X2', 'X3', 'coordinates'):
             return True
