@@ -43,6 +43,7 @@ import multiprocessing
 import warnings
 import inspect
 import textwrap
+import tqdm
 
 import numpy as np
 import pandas
@@ -89,6 +90,18 @@ class ExtensibleCmd(click.Command):
                     formatter.write(textwrap.indent(textwrap.fill(docstring), "    ") + "\n\n")
         formatter.write("\n...or any valid key consisting of a variable and any operations.\n")
 
+def out_path(run_path, kwargs):
+    if 'PYHARM_DUMPS_DIR' in os.environ:
+        base_path = os.path.realpath(os.environ['PYHARM_DUMPS_DIR'])
+    else:
+        base_path = os.path.realpath(os.getcwd())
+    if 'PYHARM_OUTPUT_DIR' in os.environ and kwargs['output_dir'] == ".":
+        out_base_path = os.path.realpath(os.environ['PYHARM_OUTPUT_DIR'])
+    else:
+        out_base_path = os.path.realpath(kwargs['output_dir'])
+
+    return run_path.replace(base_path, out_base_path)
+
 @click.command(cls=ExtensibleCmd)
 @click.argument('movie_types', nargs=1)
 @click.argument('paths', nargs=-1, type=click.Path(exists=True))
@@ -100,6 +113,7 @@ class ExtensibleCmd(click.Command):
 @click.option('--multizone', is_flag=True, help="Image a multizone run.  Call on each run folder separately!")
 @click.option('--nodiag', is_flag=True, help="Don't load a history/diagnostic text file")
 @click.option('--amr_level', default=0, help="AMR level to interpolate KHARMA file with mesh refinement")
+@click.option('--encode', is_flag=True, help="Encode the movie with ffmpeg in x264, with reasonable defaults")
 # Figure options
 @click.option('--fig_x', default=16.0, help="Figure width in inches.")
 @click.option('--fig_y', default=9.0, help="Figure height in inches.")
@@ -161,36 +175,31 @@ def movie(movie_types, paths, **kwargs):
     If run within an MPI job/allocation with mpi4py installed, movie.py will attempt to use all allocated nodes to generate
     frames.  YMMV wildly with MPI installations, with mpi4py installed via pip generally a better choice than through conda.
     """
-    path_dirs = [p for p in paths if os.path.isdir(p)]
+
+    # Enumerate runs we want to image, by absolute path
+    path_dirs = [os.path.realpath(p) for p in paths if os.path.isdir(p)]
     if len(path_dirs) == 0:
-        # Single file arguments.  Signal to treat as one movie.
+        # We passed single file arguments only.  We use this signal to treat them as one movie.
         path_dirs = [None]
+    # Total movies: types * runs
     if do_out(): print("Generating ",len(path_dirs)*len(movie_types.split(","))," movie(s)", file=sys.stderr)
 
-    start_path = os.path.abspath(os.getcwd())
-    if 'PYHARM_DUMPS_DIR' in os.environ:
-        base_path = os.path.abspath(os.environ['PYHARM_DUMPS_DIR'])
-    else:
-        base_path = start_path
-    if 'PYHARM_OUTPUT_DIR' in os.environ and kwargs['output_dir'] == ".":
-        out_path = os.path.abspath(os.environ['PYHARM_OUTPUT_DIR'])
-    else:
-        # Defaults to current dir
-        out_path = os.path.abspath(kwargs['output_dir'])
-
-    for path in path_dirs:
-        if path is None:
-            # We passed in a bunch of files as one movie
-            files = paths
-        # If a path...
-        elif os.path.isdir(path):
-            # change dir to path we want to image
-            os.chdir(path)
-            # Try to load known filenames
-            files = pyharm.io.get_fnames(".", prefer_iharm3d=kwargs['prefer_iharm3d'])
+    # For each run...
+    for run_path in path_dirs:
+        if run_path is None:
+            # We passed in a bunch of files and want one movie
+            files = [os.path.realpath(p) for p in paths]
+            run_path = os.path.dirname(files[0])
+        elif os.path.isdir(run_path):
+            # Try to load known filenames from this path, skip if there are none
+            try:
+                files = pyharm.io.get_fnames(run_path, prefer_iharm3d=kwargs['prefer_iharm3d'])
+            except FileNotFoundError:
+                continue
         else:
-            # One file amid directories
-            files = [path]
+            # This is one file amid directories
+            # TODO Test this does something sensible, or error, or ignore it & document
+            files = [run_path]
 
         # Timestamp formatting: appropriate left padding...
         if kwargs['tend'] is None:
@@ -200,19 +209,22 @@ def movie(movie_types, paths, **kwargs):
         # ...and automatically make times accurate to hundredths if t_end < 100
         if kwargs['time_digits'] < 3:
             kwargs['accurate_fnames'] = True
-
+        
         # Add these so we can pass on just the kwargs object to worker function
+        # We pass filenames themselves, so `frame` doesn't care about run_path
         kwargs['movie_types'] = movie_types
-        kwargs['path'] = path
-        # Include where to output: what to replace from cwd, and what with
-        kwargs['base_path'] = base_path
-        kwargs['out_path'] = out_path
+        if kwargs['encode']:
+            kwargs['out_path'] = "/tmp" # TODO allow changing
+            kwargs['encode_path'] = out_path(run_path, kwargs)
+        else:
+            kwargs['out_path'] = out_path(run_path, kwargs)
 
         for movie_type in movie_types.split(","):
-            frame_dir = os.path.join(os.getcwd().replace(base_path, out_path), "frames_"+movie_type)
-            os.makedirs(frame_dir, exist_ok=True)
+            # We are now in path = base_path + run_name. Output to out_path + run_name + frames_X
+            os.makedirs(os.path.join(kwargs['out_path'], "frames_"+movie_type), exist_ok=True)
 
         # Option to avoid loading diag file since not everything needs it
+        # TODO mark whether given movies even require diag
         if kwargs['nodiag']:
             diag = None
         else:
@@ -245,7 +257,10 @@ def movie(movie_types, paths, **kwargs):
                 except (IndexError, IOError, pandas.errors.ParserError):
                     diag = None
 
-        if do_out(): print("Imaging model {} with movie {}".format(path, movie_type), file=sys.stderr)
+        if do_out():
+            print("Imaging outputs in {} with movie(s) {}".format(run_path, movie_types), file=sys.stderr)
+            print("Outputting to {}".format(kwargs['out_path']), file=sys.stderr)
+        # Serial operation for debugging/memory analysis
         if 'debug' in kwargs and kwargs['debug']:
             # Import profiling only if used, start it
             import cProfile, pstats, io
@@ -266,6 +281,7 @@ def movie(movie_types, paths, **kwargs):
             print(s.getvalue())
 
         else:
+            # Parallel with mpi or multiprocessing
             # Suppress math warnings for e.g. log(-)
             if not sys.warnoptions:
                 warnings.simplefilter("ignore")
@@ -291,17 +307,14 @@ def movie(movie_types, paths, **kwargs):
                 with MPICommExecutor() as executor:
                     if executor is not None:
                         print("Imaging {} files across pool size {}".format(len(files), MPI.COMM_WORLD.Get_size()), file=sys.stderr)
-                        executor.map(frame, files, (diag,)*len(files), (kwargs,)*len(files))
+                        tqdm.tqdm(executor.map(frame, files, (diag,)*len(files), (kwargs,)*len(files)))
             else:
                 print("Using {} processes".format(nthreads))
                 with multiprocessing.Pool(nthreads) as pool:
                     args = zip(files, (diag,)*len(files), (kwargs,)*len(files))
-                    pool.starmap_async(frame, args).get(720000)
+                    pool.starmap_async(frame, tqdm.tqdm(args, total=len(files))).get(720000)
 
-        if do_out(): print("Imaged model {} with movie(s) {}".format(path, movie_types), file=sys.stderr)
-
-        # Change back to wherever our root was, argument paths can be relative
-        os.chdir(start_path)
+        if do_out(): print("Imaged model {} with movie(s) {}".format(run_path, movie_types), file=sys.stderr)
 
 if __name__ == "__main__":
     movie()

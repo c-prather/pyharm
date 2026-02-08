@@ -166,7 +166,7 @@ def frame(fname, diag, kwargs):
     movie_types = []
     ghost_zones = False
     for movie_type in kwargs['movie_types'].split(","):
-        frame_folder = os.path.join(os.getcwd().replace(kwargs['base_path'], kwargs['out_path']), "frames_"+movie_type)
+        frame_folder = os.path.join(kwargs['out_path'], "frames_"+movie_type)
         if 'numeric_fnames' in kwargs and kwargs['numeric_fnames']:
             frame_name = os.path.join(frame_folder, "frame_"+fname.split('.')[-2]+".png")
         elif 'accurate_fnames' in kwargs and kwargs['accurate_fnames']:
@@ -191,7 +191,8 @@ def frame(fname, diag, kwargs):
     if len(movie_types) == 0:
         return
 
-    print("Imaging t={}".format(int(tdump)), file=sys.stderr)
+    # Only if we aren't using the progress bar
+    #print("Imaging t={}".format(int(tdump)), file=sys.stderr)
 
     # This just attaches the file and creates a grid.  We do need to specify
     # if any movie will need ghosts, for the index math
