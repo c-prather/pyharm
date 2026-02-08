@@ -190,16 +190,12 @@ def movie(movie_types, paths, **kwargs):
             # We passed in a bunch of files and want one movie
             files = [os.path.realpath(p) for p in paths]
             run_path = os.path.dirname(files[0])
-        elif os.path.isdir(run_path):
+        else:
             # Try to load known filenames from this path, skip if there are none
             try:
                 files = pyharm.io.get_fnames(run_path, prefer_iharm3d=kwargs['prefer_iharm3d'])
             except FileNotFoundError:
                 continue
-        else:
-            # This is one file amid directories
-            # TODO Test this does something sensible, or error, or ignore it & document
-            files = [run_path]
 
         # Timestamp formatting: appropriate left padding...
         if kwargs['tend'] is None:

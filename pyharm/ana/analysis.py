@@ -47,7 +47,6 @@ def write_ana_dict(out, out_full, n, n_dumps):
     Note this is not thread-safe and must be called from one process
     """
     if out is None:
-        print("Failed to read dump number {}".format(n))
         return
     for key in list(out.keys()):
         tag = key.split('/')[0]
@@ -75,9 +74,17 @@ def analyze(args):
     out = {}
     dump = FluidState(fname)
     ana_types = kwargs['ana_types'].split(",")
+    prints_only = True
+    for atype in ana_types:
+        if 'print' not in atype:
+            prints_only = False
+
     # Always start with "basic" as it's got some things we'll need
-    if ana_types[0] != "basic":
+    # (unless we're just printing something)
+    if not prints_only and ana_types[0] != "basic":
         ana_types.insert(0, "basic")
+    
+    # Actually do the analyses, adding to the 'out' dictionary
     for type in ana_types:
         analyses.__dict__[type](dump, out, **kwargs)
     return out
@@ -89,4 +96,5 @@ def analyze_catch_err(args):
         # Make sure we still surface errors when running under MPI,
         # but don't crash the run on a bad file read.
         print(e, file=sys.stderr)
+        print("Failed to analyze dump number {}".format(n), file=sys.stderr)
         return None

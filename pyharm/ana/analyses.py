@@ -32,6 +32,7 @@ __license__ = """
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import os
 import sys
 
 from .reductions import *
@@ -67,7 +68,7 @@ def basic(dump, out, **kwargs):
     # Record whether this dump is part of the average
     out['t/is_avg'] = kwargs['t_avg_start'] < dump['t'] < kwargs['t_avg_end']
 
-    print("Analyzing t={}".format(int(dump['t'])), file=sys.stderr)
+    #print("Analyzing t={}".format(int(dump['t'])), file=sys.stderr)
 
     # FIELD STRENGTH
     # The HARM B_unit is sqrt(4pi)*c*sqrt(rho), and this is standard for EHT comparisons
@@ -190,14 +191,18 @@ def diagnostics(dump, out, **kwargs):
     out['rt/total_fails'] = np.sum(dump['fails'] > 0, axis=(1,2))
 
     # This isn't useful in single-precision
+    # TODO ensure it's just the recorded one if present
     #out['t/MaxDivB'] = np.max(dump['divB'])
 
 def print_flags(dump, out, **kwargs):
     """Just check floor and failure flags. Used as a cursory check for run sanity
     """
-    total_floors = np.sum(dump['floors'] > 0, axis=(1,2))
-    total_fails = np.sum(dump['fails'] > 0, axis=(1,2))
-    print("{} floors: {} failures: {}".format(dump.fname, total_floors, total_fails), file=sys.stderr)
+    total_cells = np.sum(dump['1'])
+    total_floors = np.sum(dump['fflag'] > 0)
+    total_fails = np.sum(dump['pflag'] > 0)
+    print("{} floors: {} ({:.3}%) failures: {} ({:.3}%)".format(os.path.basename(dump.fname),
+                                            total_floors, total_floors / total_cells * 100,
+                                            total_fails, total_fails / total_cells * 100), file=sys.stderr)
     # TODO some automated "bad" criterion
 
 def print_divb(dump, out, **kwargs):
