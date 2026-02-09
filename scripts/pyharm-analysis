@@ -43,6 +43,7 @@ import warnings
 import h5py
 import inspect
 import textwrap
+import tqdm
 
 import pyharm
 from pyharm import io
@@ -84,6 +85,18 @@ class ExtensibleCmd(click.Command):
                     # Reflow and indent
                     formatter.write(textwrap.indent(textwrap.fill(docstring), "    ") + "\n\n")
 
+def out_path(run_path, kwargs):
+    if 'PYHARM_DUMPS_DIR' in os.environ:
+        base_path = os.path.realpath(os.environ['PYHARM_DUMPS_DIR'])
+    else:
+        base_path = os.path.realpath(os.getcwd())
+    if 'PYHARM_OUTPUT_DIR' in os.environ and kwargs['output_dir'] == ".":
+        out_base_path = os.path.realpath(os.environ['PYHARM_OUTPUT_DIR'])
+    else:
+        out_base_path = os.path.realpath(kwargs['output_dir'])
+
+    return run_path.replace(base_path, out_base_path)
+
 @click.command(cls=ExtensibleCmd)
 @click.argument('ana_types', nargs=1)
 @click.argument('paths', nargs=-1, type=click.Path(exists=True))
@@ -101,7 +114,6 @@ class ExtensibleCmd(click.Command):
 @click.option('-n', '--nthreads', default=None, help="Number of processes to use, if not using MPI")
 @click.option('-d', '--debug', is_flag=True, default=False, help="Serial operation for debugging")
 @click.option('--nompi', is_flag=True, default=False, help="Avoid MPI even if available")
-#@click.option('-m', '--memory_limit', default=1, help="Memory limit in GB for each process, enforced by starting total/m processes.")
 def analysis(ana_types, paths, **kwargs):
     """Analyze the simulation output at each of PATHS with the function/combo specified by ANA_TYPES
 
@@ -119,50 +131,37 @@ def analysis(ana_types, paths, **kwargs):
     frames.  YMMV wildly with MPI installations, with mpi4py installed via pip generally a better choice than through conda.
 
     """
-    path_dirs = [p for p in paths if os.path.isdir(p)]
-
-    # Only treat files if *none* of the args is a directory
+    # Enumerate runs we want to image, by absolute path
+    # TODO this breaks 'paths_are_files', fix
+    path_dirs = [os.path.realpath(p) for p in paths if os.path.isdir(p)]
     if len(path_dirs) == 0:
-        path_dirs = paths
+        # We passed single file arguments only.  We use this signal to treat them as one movie.
+        path_dirs = [None]
+    # Total movies: types * runs
+    if do_out(): print("Analyzing ",len(path_dirs)," runs", file=sys.stderr)
 
-    # If we're treating files together, just treat "." as the only "directory"
-    if not kwargs['paths_are_files']:
-        if do_out(): print("Generating {} analyses sequentially".format(len(path_dirs)), file=sys.stderr)
-    else:
-        if do_out(): print("Analyzing {} files as a set".format(len(paths)), file=sys.stderr)
-        path_dirs = "."
-
-    # We stay in the *current* folder structure with our targets.
-    # But we'll open *outputs* under the desired output_dir if different
-    start_path = os.path.abspath(os.getcwd())
-    if 'PYHARM_DUMPS_DIR' in os.environ:
-        base_path = os.path.abspath(os.environ['PYHARM_DUMPS_DIR'])
-    else:
-        base_path = start_path
-    if 'PYHARM_OUTPUT_DIR' in os.environ and kwargs['output_dir'] == ".":
-        out_path = os.path.abspath(os.environ['PYHARM_OUTPUT_DIR'])
-    else:
-        # Defaults to current dir
-        out_path = os.path.abspath(kwargs['output_dir'])
-
-    for path in path_dirs:
-        if do_out(): print("Running analyses {} on model {}".format(ana_types, path), file=sys.stderr)
-        # If a path...
-        if os.path.isdir(path):
-            # change dir to path we want to image
-            os.chdir(path)
+    for run_path in path_dirs:
+        if do_out(): print("Running analyses {} on model {}".format(ana_types, run_path), file=sys.stderr)
+        if run_path is None:
+            # We passed in a bunch of files and want one movie
+            files = [os.path.realpath(p) for p in paths]
+            run_path = os.path.dirname(files[0])
+        else:
             # Try to load known filenames
             if not kwargs['paths_are_files']:
-                files = pyharm.io.get_fnames(".", prefer_iharm3d=kwargs['prefer_iharm3d'])
+                # Try to load known filenames from this path, skip if there are none
+                try:
+                    files = pyharm.io.get_fnames(run_path, prefer_iharm3d=kwargs['prefer_iharm3d'])
+                except FileNotFoundError:
+                    continue
             else:
                 files = paths
-        else:
-            # Just the single dump file. TODO move to its dir?
-            files = [path]
 
-        # Add these so we can pass on just the args
+        # Add these so we can pass on just the kwargs object to worker function
+        # We pass filenames themselves, so `frame` doesn't care about run_path
         kwargs['ana_types'] = ana_types
-        kwargs['path'] = path
+        kwargs['out_path'] = out_path(run_path, kwargs)
+
         # Canonical start & end time for averages
         tend = pyharm.io.get_dump_time(files[-1])
         if 'average_start' in kwargs and kwargs['average_start'] is not None:
@@ -176,18 +175,16 @@ def analysis(ana_types, paths, **kwargs):
             kwargs['t_avg_end'] = tend
 
         # Set filename from analysis if doing one
-        if (kwargs['filename'] == 'eht_out.h5') and not (',' in kwargs['ana_types']):
-            kwargs['filename'] = kwargs['ana_types']+"_out.h5"
+        if (kwargs['filename'] == 'eht_out.h5') and not (',' in ana_types):
+            kwargs['filename'] = ana_types+"_out.h5"
 
         if do_out():
-            # Initialize the file, creating parent dir if not present
-            parent_path = os.getcwd().replace(base_path, out_path)
-            file_path = os.path.join(parent_path, kwargs['filename'])
+            # Initialize or open the file, creating parent dir if not present
+            file_path = os.path.join(kwargs['out_path'], kwargs['filename'])
             if kwargs['append']:
                 outfile = h5py.File(file_path, 'a')
             else:
-                if not os.path.exists(parent_path):
-                    os.makedirs(parent_path)
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 outfile = h5py.File(file_path, 'w')
             # Copy in the header, either as-is or converted
             is_ilhdf = False
@@ -254,9 +251,18 @@ def analysis(ana_types, paths, **kwargs):
             else:
                 nthreads = int(kwargs['nthreads'])
 
-            # This application is entirely side-effects (frame creation)
-            # So we map & ignore result
-            # TODO pass single figure & blit/encode within Python?
+            # Only use as many processes at files
+            nthreads = min(nthreads, len(files))
+
+            # Use a progress bar unless the analysis will print stuff
+            progressbar = True
+            for atype in ana_types.split(","):
+                if 'print' in atype:
+                    progressbar = False
+            # Apply tqdm to the list if we want a progress bar
+            args = list(zip(files, (kwargs,)*len(files)))
+            args_list = args if not progressbar else tqdm.tqdm(args, total=len(args))
+
             if use_mpi and not kwargs['nompi']:
                 print("Using MPI")
                 # Everything is set by MPI.  We inherit a situation and use it
@@ -265,25 +271,21 @@ def analysis(ana_types, paths, **kwargs):
                     # so the following is done only once
                     if executor is not None:
                         print("Analyzing {} files across pool size {}".format(len(files), MPI.COMM_WORLD.Get_size()), file=sys.stderr)
-                        args = zip(files, (kwargs,)*len(files))
-                        # This probably shouldn't be a straight map(), or we might run out of memory on the master node
-                        for n, result in enumerate(executor.map(analyze_catch_err, args)):
+                        # This probably shouldn't be a straight map(), we might run out of memory on the master node
+                        for n, result in enumerate(executor.map(analyze_catch_err, args_list)):
                             write_ana_dict(result, outfile, n, len(files))
                         outfile.close()
             else:
                 print("Using {} processes".format(nthreads))
                 with multiprocessing.Pool(nthreads) as pool:
-                    args = zip(files, (kwargs,)*len(files))
-                    out_iter = pool.imap(analyze_catch_err, args)
+                    out_iter = pool.imap(analyze_catch_err, args_list)
                     for n, result in enumerate(out_iter):
                         write_ana_dict(result, outfile, n, len(files))
                 outfile.close()
 
 
 
-        if do_out(): print("Ran analyses {} on model {}".format(ana_types, path), file=sys.stderr)
-        # Change back to wherever our initial directory was, as argument paths can be relative
-        os.chdir(start_path)
+        if do_out(): print("Ran analyses {} on model {}".format(ana_types, run_path), file=sys.stderr)
 
 
 

@@ -81,7 +81,8 @@ def get_fnames(path, prefer_iharm3d=False):
             # Explicitly take out some common things in dump directories
             files = [f for f in files if ("grid" not in f) and ("eht_out" not in f)]
             return files
-    raise FileNotFoundError("No dump files found at {}".format(path))
+
+    raise FileNotFoundError("No dump files found at {}/{}".format(os.getcwd(),path))
 
 def _get_filter_class(fname):
     """Internal pyharm i/o function to choose which class to use when reading a new file.
@@ -94,7 +95,8 @@ def _get_filter_class(fname):
     elif ".h5" in fname:
         with h5py.File(fname, 'r') as f:
             if 'header' in f.keys():
-                if 'KORAL' in f["/header/version"][()].decode('UTF-8'):
+                if 'version' in f["/header"].keys() and \
+                    'KORAL' in f["/header/version"][()].decode('UTF-8'):
                     return KORALFile
                 else:
                     return Iharm3DFile
@@ -119,20 +121,16 @@ def get_dump_time(fname):
 
 def get_dump_type(fname):
     """Attempt to get an unknown dump's type even if we can't load it"""
-    filter = _get_filter_class(fname)
-    if filter == KHARMAFile:
-        name = "KHARMA"
-    elif filter == Iharm3DFile:
-        name = "iharm3D"
-    elif filter == KORALFile:
-        name = "KORAL"
-    elif filter == Iharm3DRestart:
-        name = "iharm3D (restart)"
-    elif filter == HAMRFile:
-        name = "H-AMR"
-    elif filter == HARM2DFile:
-        name = "iharm2d"
-    return name
+    # TODO define pretty names inside the classes?
+    return {
+        KHARMAFile: "KHARMA",
+        Iharm3DFile: "iharm3D",
+        Iharm3DRestart: "iharm3D (restart)",
+        KORALFile: "KORAL",
+        HAMRFile: "H-AMR",
+        HARM2DFile: "iharm2d"
+    }[_get_filter_class(fname)]
+
 
 def read_hdr(fname):
     """Get just the header/params embedded in a simulation file.

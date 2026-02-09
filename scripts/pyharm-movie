@@ -38,11 +38,16 @@ __license__ = """
 import os, sys
 import click
 import glob
-import psutil
-import multiprocessing
-import warnings
 import inspect
+import itertools
+import multiprocessing
+import psutil
+import shutil
+import subprocess
 import textwrap
+import time
+import tqdm
+import warnings
 
 import numpy as np
 import pandas
@@ -89,30 +94,45 @@ class ExtensibleCmd(click.Command):
                     formatter.write(textwrap.indent(textwrap.fill(docstring), "    ") + "\n\n")
         formatter.write("\n...or any valid key consisting of a variable and any operations.\n")
 
+def out_path(run_path, kwargs):
+    if 'PYHARM_DUMPS_DIR' in os.environ:
+        base_path = os.path.realpath(os.environ['PYHARM_DUMPS_DIR'])
+    else:
+        base_path = os.path.realpath(os.getcwd())
+    if 'PYHARM_OUTPUT_DIR' in os.environ and kwargs['output_dir'] == ".":
+        out_base_path = os.path.realpath(os.environ['PYHARM_OUTPUT_DIR'])
+    else:
+        out_base_path = os.path.realpath(kwargs['output_dir'])
+
+    return run_path.replace(base_path, out_base_path)
+
 @click.command(cls=ExtensibleCmd)
-@click.argument('movie_types', nargs=1)
+@click.argument('movie_types', nargs=1) # does click support list args?
 @click.argument('paths', nargs=-1, type=click.Path(exists=True))
 # Common options
 @click.option('-s', '--tstart', default=None, help="Start time.")
 @click.option('-e', '--tend', default=None, help="End time.")
 @click.option('-n', '--nthreads', default=None, help="Number of processes to use, if not using MPI")
-@click.option('-o', '--output_dir', default=".", help="Base directory for outputs. Any folder structure of models will be preserved.")
+@click.option('-o', '--output-dir', default=".", help="Base directory for outputs. Any folder structure of models will be preserved.")
 @click.option('--multizone', is_flag=True, help="Image a multizone run.  Call on each run folder separately!")
 @click.option('--nodiag', is_flag=True, help="Don't load a history/diagnostic text file")
+@click.option('--amr-level', default=0, help="AMR level to interpolate KHARMA file with mesh refinement")
+@click.option('--encode', is_flag=True, help="Encode the movie with ffmpeg in x264, with reasonable defaults")
+@click.option('--encode-options', default="-vcodec libx264 -crf 15 -pix_fmt yuv420p", help="Encoding options for ffmpeg calls")
 # Figure options
-@click.option('--fig_x', default=16.0, help="Figure width in inches.")
-@click.option('--fig_y', default=9.0, help="Figure height in inches.")
-@click.option('--fig_dpi', default=100, help="DPI of resulting figure.")
+@click.option('--fig-x', default=16.0, help="Figure width in inches.")
+@click.option('--fig-y', default=9.0, help="Figure height in inches.")
+@click.option('--fig-dpi', default=100, help="DPI of resulting figure.")
 @click.option('--left', default=0.07, help="Left side padding of figure (as in subplots_adjust).")
 @click.option('--right', default=0.93, help="Right side padding of figure (as in subplots_adjust).")
 @click.option('--bottom', default=None, help="Bottom padding of figure (as in subplots_adjust).")
 @click.option('--top', default=None, help="Top padding of figure (as in subplots_adjust).")
 @click.option('--wspace', default=None, help="Width spacing between plots in figure (as in subplots_adjust).")
 @click.option('--hspace', default=None, help="Height spacing between plots in figure (as in subplots_adjust).")
-@click.option('--no_title', is_flag=True, help="Omit a plot title e.g. of simulation time.")
+@click.option('--no-title', is_flag=True, help="Omit a plot title e.g. of simulation time.")
 # Dump file plotting options
 @click.option('-g','--ghost_zones', is_flag=True, help="Plot ghost zones.")
-@click.option('-at','--at','--at_zone', 'at', default=0, help="Phi zone to plot at.")
+@click.option('-at','--at','--at-zone', 'at', default=0, help="Phi zone to plot at.")
 @click.option('-av','--av','--average', 'average', is_flag=True, help="Average quantities over phi.")
 @click.option('--sum', is_flag=True, help="Sum quantities over phi.")
 @click.option('-sh','--sh','--shading', 'shading', default='flat', help="Shading: flat, nearest, gouraud.")
@@ -125,23 +145,23 @@ class ExtensibleCmd(click.Command):
 @click.option('--xmax', default=None, help="Window X maximum.")
 @click.option('--ymin', default=None, help="Window Y minimum.")
 @click.option('--ymax', default=None, help="Window Y maximum.")
-@click.option('--log_r', is_flag=True, help="Make the plots logarithmic in radius.")
-@click.option('--overlay_field', is_flag=True, help="Overlay field lines.")
+@click.option('--log-r', is_flag=True, help="Make the plots logarithmic in radius.")
+@click.option('--overlay-field', is_flag=True, help="Overlay field lines.")
 @click.option('--nlines', default=20, help="Number of total field lines to overlay.")
-@click.option('--overlay_grid', is_flag=True, help="Overlay simulation zone borders.")
-@click.option('--overlay_grid_spacing', default=1, help="Only plot grid every X lines.")
-@click.option('--overlay_blocks', is_flag=True, help="Overlay simulation block borders.")
-@click.option('--native', is_flag=True, help="Plot in native coordinates X1,X2,X3 rather than converting to Cartesian.")
+@click.option('--overlay-grid', is_flag=True, help="Overlay simulation zone borders.")
+@click.option('--overlay-grid-spacing', default=1, help="Only plot grid every X lines.")
+@click.option('--overlay-blocks', is_flag=True, help="Overlay simulation block borders.")
+@click.option('--array', is_flag=True, help="Plot values in array space: Cartesian, without coordinate transformations.")
 @click.option('--bh/--no-bh', default=True, help="Whether to show the BH shadow.")
-@click.option('--no_grid_cache', is_flag=True, help="Don't cache geometry.  For plotting large Cartesian simulations.")
-@click.option('--prefer_iharm3d', is_flag=True, help="Prefer iharm3d-format files if available alongside KHARMA output")
+@click.option('--no-grid-cache', is_flag=True, help="Don't cache geometry.  For plotting large Cartesian simulations.")
+@click.option('--prefer-iharm3d', is_flag=True, help="Prefer iharm3d-format files if available alongside KHARMA output")
 # Extras
-@click.option('--accurate_fnames', is_flag=True, help="Name frames by 1/100M, for short runs.")
-@click.option('--numeric_fnames', is_flag=True, help="Name frames by file number.")
+@click.option('--tag', default="", help="String to append to the movie name")
+@click.option('--accurate-fnames', is_flag=True, help="Name frames by 1/100M, for close spaced outputs.")
+@click.option('--numeric-fnames', is_flag=True, help="Name frames by file number.")
 @click.option('-r', '--resume', is_flag=True, help="Continue a previous run, by skipping existing frames")
 @click.option('-d', '--debug', is_flag=True, help="Serial operation for debugging")
 @click.option('--nompi', is_flag=True, help="Avoid MPI even if available")
-#@click.option('-m', '--memory_limit', default=1, help="Memory limit in GB for each process, enforced by starting total/m processes.")
 @click.version_option(package_name='pyharm')
 def movie(movie_types, paths, **kwargs):
     """Generate movies of type MOVIE_TYPE from dumps at each of PATHS.
@@ -160,36 +180,32 @@ def movie(movie_types, paths, **kwargs):
     If run within an MPI job/allocation with mpi4py installed, movie.py will attempt to use all allocated nodes to generate
     frames.  YMMV wildly with MPI installations, with mpi4py installed via pip generally a better choice than through conda.
     """
-    path_dirs = [p for p in paths if os.path.isdir(p)]
+
+    # Enumerate runs we want to image, by absolute path
+    path_dirs = [os.path.realpath(p) for p in paths if os.path.isdir(p)]
     if len(path_dirs) == 0:
-        # Single file arguments.  Signal to treat as one movie.
+        # We passed single file arguments only.  We use this signal to treat them as one movie.
         path_dirs = [None]
-    if do_out(): print("Generating ",len(path_dirs)*len(movie_types.split(","))," movie(s)", file=sys.stderr)
+    # Total movies: types * runs
+    movie_types = movie_types.split(",")
+    if do_out(): print("Generating ",len(path_dirs)*len(movie_types)," movie(s)", file=sys.stderr)
 
-    start_path = os.path.abspath(os.getcwd())
-    if 'PYHARM_DUMPS_DIR' in os.environ:
-        base_path = os.path.abspath(os.environ['PYHARM_DUMPS_DIR'])
-    else:
-        base_path = start_path
-    if 'PYHARM_OUTPUT_DIR' in os.environ and kwargs['output_dir'] == ".":
-        out_path = os.path.abspath(os.environ['PYHARM_OUTPUT_DIR'])
-    else:
-        # Defaults to current dir
-        out_path = os.path.abspath(kwargs['output_dir'])
-
-    for path in path_dirs:
-        if path is None:
-            # We passed in a bunch of files as one movie
-            files = paths
-        # If a path...
-        elif os.path.isdir(path):
-            # change dir to path we want to image
-            os.chdir(path)
-            # Try to load known filenames
-            files = pyharm.io.get_fnames(".", prefer_iharm3d=kwargs['prefer_iharm3d'])
+    # For each run...
+    # TODO we read files repeatedly for different movies here.
+    #      If running multiple movies with exactly the same options becomes common (?),
+    #      this could be made a lot faster by returning to running them together.
+    #      Really, we need a movie/analysis spec to do everything in one run...
+    for run_path, movie_type in itertools.product(path_dirs, movie_types):
+        if run_path is None:
+            # We passed in a bunch of files and want one movie
+            files = [os.path.realpath(p) for p in paths]
+            run_path = os.path.dirname(files[0])
         else:
-            # One file amid directories
-            files = [path]
+            # Try to load known filenames from this path, skip if there are none
+            try:
+                files = pyharm.io.get_fnames(run_path, prefer_iharm3d=kwargs['prefer_iharm3d'])
+            except FileNotFoundError:
+                continue
 
         # Timestamp formatting: appropriate left padding...
         if kwargs['tend'] is None:
@@ -199,52 +215,47 @@ def movie(movie_types, paths, **kwargs):
         # ...and automatically make times accurate to hundredths if t_end < 100
         if kwargs['time_digits'] < 3:
             kwargs['accurate_fnames'] = True
-
+        
         # Add these so we can pass on just the kwargs object to worker function
-        kwargs['movie_types'] = movie_types
-        kwargs['path'] = path
-        # Include where to output: what to replace from cwd, and what with
-        kwargs['base_path'] = base_path
-        kwargs['out_path'] = out_path
+        # We pass filenames themselves, so `frame` doesn't care about run_path
+        kwargs['movie_types'] = movie_type
+        if kwargs['encode']:
+            kwargs['out_path'] = "/tmp" # TODO allow changing
+            kwargs['encode_path'] = out_path(run_path, kwargs)
+        else:
+            kwargs['out_path'] = out_path(run_path, kwargs)
 
-        for movie_type in movie_types.split(","):
-            frame_dir = os.path.join(os.getcwd().replace(base_path, out_path), "frames_"+movie_type)
-            os.makedirs(frame_dir, exist_ok=True)
+        # Reading from base_path + run_name. Output to out_path + run_name + frames_X
+        movie_name = movie_type+("_"+kwargs['tag'] if kwargs['tag'] != "" else "")
+        frame_dir = os.path.join(kwargs['out_path'], "frames_"+movie_name)
+        # Unless we're resuming a previous video, just kill the directory
+        if not kwargs['resume'] and os.path.exists(frame_dir):
+            shutil.rmtree(frame_dir)
+        os.makedirs(frame_dir, exist_ok=True)
 
         # Option to avoid loading diag file since not everything needs it
-        if kwargs['nodiag']:
-            diag = None
-        else:
-            try:
-                # Load diagnostics from post-processing file
-                fname = None
-                if len(glob.glob("eht_out.h5")) > 0:
-                    fname = glob.glob("eht_out.h5")[0]
-                if fname is not None:
-                    if do_out(): print("Loading diag file {}".format(fname), file=sys.stderr)
-                    diag = pyharm.io.read_log(fname)
-                else:
-                    diag = None
-            except (IOError, pandas.errors.ParserError):
-                    diag = None
+        # TODO mark whether given movies even require diag
+        kwargs['diag'] = None
+        if not kwargs['nodiag']:
+            diag_names = ("eht_out.h5", "*.h5", "*.hst", "*/*.hst")
+            for base_path,diag_name in itertools.product((out_path(run_path, kwargs), run_path), diag_names):
+                if len(glob.glob(os.path.join(base_path, diag_name))) > 0:
+                    fname = glob.glob(os.path.join(base_path, diag_name))[0]
+                    if do_out(): print("Trying to load diagnostics from {}".format(fname), file=sys.stderr)
+                    try:
+                        # This works for either reduction results (.h5) or KHARMA's history file (.hst)
+                        pyharm.load_results(fname)
+                        # Record only the name, the AnaResults object is not pickle-able
+                        kwargs['diag'] = fname
+                        break
+                    except (IOError, pandas.errors.ParserError) as e:
+                        print(e, file=sys.stderr)
+                        continue
 
-            if diag is None:
-                try:
-                    # Load diagnostics from HARM itself
-                    fname = None
-                    if len(glob.glob("*.hst")) > 0:
-                        fname = glob.glob("*.hst")[0]
-                    elif len(glob.glob("*/*.hst")) > 0:
-                        fname = glob.glob("*/*.hst")[0]
-                    if fname is not None:
-                        if do_out(): print("Loading diag file {}".format(fname), file=sys.stderr)
-                        diag = pyharm.io.read_log(fname)
-                    else:
-                        diag = None
-                except (IndexError, IOError, pandas.errors.ParserError):
-                    diag = None
-
-        if do_out(): print("Imaging model {} with movie {}".format(path, movie_type), file=sys.stderr)
+        if do_out():
+            print("Imaging outputs in {} with movie {}".format(run_path, movie_type), file=sys.stderr)
+            print("Outputting to {}".format(frame_dir), file=sys.stderr)
+        # Serial operation for debugging/memory analysis
         if 'debug' in kwargs and kwargs['debug']:
             # Import profiling only if used, start it
             import cProfile, pstats, io
@@ -255,7 +266,7 @@ def movie(movie_types, paths, **kwargs):
             # Run sequentially to make profiling & backtraces work
             for fname in files:
                 tr = tracker.SummaryTracker()
-                frame(fname, diag, kwargs)
+                frame(fname, kwargs)
                 tr.print_diff()
 
             pr.disable()
@@ -265,6 +276,7 @@ def movie(movie_types, paths, **kwargs):
             print(s.getvalue())
 
         else:
+            # Parallel with mpi or multiprocessing
             # Suppress math warnings for e.g. log(-)
             if not sys.warnoptions:
                 warnings.simplefilter("ignore")
@@ -290,17 +302,23 @@ def movie(movie_types, paths, **kwargs):
                 with MPICommExecutor() as executor:
                     if executor is not None:
                         print("Imaging {} files across pool size {}".format(len(files), MPI.COMM_WORLD.Get_size()), file=sys.stderr)
-                        executor.map(frame, files, (diag,)*len(files), (kwargs,)*len(files))
+                        tqdm.tqdm(executor.map(frame, files, (kwargs,)*len(files)))
             else:
                 print("Using {} processes".format(nthreads))
                 with multiprocessing.Pool(nthreads) as pool:
-                    args = zip(files, (diag,)*len(files), (kwargs,)*len(files))
-                    pool.starmap_async(frame, args).get(720000)
+                    args = zip(files, (kwargs,)*len(files))
+                    pool.starmap_async(frame, tqdm.tqdm(args, total=len(files))).get(720000)
 
-        if do_out(): print("Imaged model {} with movie(s) {}".format(path, movie_types), file=sys.stderr)
+        if kwargs['encode']:
+            movie_path = os.path.join(kwargs['encode_path'], movie_name+".mp4")
+            print(f"Encoding to {movie_path}")
+            framerate = 8 if len(files) < 300 else 24
+            call = f"ffmpeg -f image2 -i {os.path.join(frame_dir, "%*.png")} -r {framerate} {kwargs['encode_options']} -y {movie_path}"
+            subprocess.run(call, shell=True, check=True)
+            # Remove from /tmp, it's often not cleaned after jobs
+            shutil.rmtree(frame_dir)
 
-        # Change back to wherever our root was, argument paths can be relative
-        os.chdir(start_path)
+        if do_out(): print("Imaged model {} with movie(s) {}".format(run_path, movie_types), file=sys.stderr)
 
 if __name__ == "__main__":
     movie()

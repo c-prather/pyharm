@@ -135,6 +135,8 @@ def pretty(var, segment=False):
         ret = r"1 / " + pretty(var[4:], segment=True)
     if var in pretty_dict:
         ret = pretty_dict[var]
+    elif var.split("_")[0] in pretty_dict:
+        ret = pretty_dict[var.split("_")[0]] + r"_\text{" + "_".join(var.split("_")[1:]) + r"}"
     
     if segment:
         return ret

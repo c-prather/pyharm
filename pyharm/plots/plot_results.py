@@ -46,10 +46,11 @@ from .pretty import pretty
 def plot_hst(ax, diag, var, tline=None, xticklabels=None, xlabel=None, **kwargs):
     """Plot a scalar vs t, optionally marking with a red line representing current time"""
 
-    ax.plot(*diag.get_result('t', var), label=pretty(var), **kwargs)
+    ax.plot(diag['t'], diag['t/{}'.format(var)], label=pretty(var), **kwargs)
+    ax.set_ylabel(pretty(var), rotation=0, ha='right')
 
     if tline is not None:
-        ax.axvline(tline, color='r')
+        ax.axvline(tline, color='b')
 
     ax.legend(loc='upper left')
     ax.grid(True)

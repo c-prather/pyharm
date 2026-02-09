@@ -1,25 +1,25 @@
 __license__ = """
  File: analyses.py
- 
+
  BSD 3-Clause License
- 
+
  Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
  All rights reserved.
- 
+
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
- 
+
  1. Redistributions of source code must retain the above copyright notice, this
     list of conditions and the following disclaimer.
- 
+
  2. Redistributions in binary form must reproduce the above copyright notice,
     this list of conditions and the following disclaimer in the documentation
     and/or other materials provided with the distribution.
- 
+
  3. Neither the name of the copyright holder nor the names of its
     contributors may be used to endorse or promote products derived from
     this software without specific prior written permission.
- 
+
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -32,6 +32,7 @@ __license__ = """
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import os
 import sys
 
 from .reductions import *
@@ -67,7 +68,7 @@ def basic(dump, out, **kwargs):
     # Record whether this dump is part of the average
     out['t/is_avg'] = kwargs['t_avg_start'] < dump['t'] < kwargs['t_avg_end']
 
-    print("Analyzing t={}".format(int(dump['t'])), file=sys.stderr)
+    #print("Analyzing t={}".format(int(dump['t'])), file=sys.stderr)
 
     # FIELD STRENGTH
     # The HARM B_unit is sqrt(4pi)*c*sqrt(rho), and this is standard for EHT comparisons
@@ -78,9 +79,14 @@ def basic(dump, out, **kwargs):
     # EHT code-comparison normalization has all these values positive
     for var, flux in [['Edot', 'FE'], ['Mdot', 'FM'], ['Ldot', 'FL']]:
         out['t/'+var] = shell_sum(dump, flux, at_i=iEH)
+        # Also add the fluxes at r=5, which avoids floor trash and inaccuracies
+        out['t/'+var+'_5'] = shell_sum(dump, flux, at_r=5.)
+
     # Mdot and Edot are defined inward/positive at EH
     out['t/Mdot'] *= -1
     out['t/Edot'] *= -1
+    out['t/Mdot_5'] *= -1
+    out['t/Edot_5'] *= -1
 
 def dynamo(dump, out, **kwargs):
     """Compare magnetization in the upper and lower hemisphere of EH, and at 5 r_g
@@ -107,7 +113,7 @@ def r_profiles(dump, out, vars=('rho', 'Pg', 'u^r', 'u^3', 'u_3', 'b', 'inv_beta
     jmin, jmax = get_j_bounds(dump)
     for var in vars:
         out['rt/' + var + '_disk'] = shell_avg(dump, var, j_slice=(jmin, jmax))
-        out['rt/' + var + '_notdisk'] = (shell_avg(dump, var, j_slice=(0, jmin)) + 
+        out['rt/' + var + '_notdisk'] = (shell_avg(dump, var, j_slice=(0, jmin)) +
                                          shell_avg(dump, var, j_slice=(jmax, dump['n2']))) / 2
         if _get(kwargs, 'do_tavgs'):
             out['r/' + var + '_disk'] = out['rt/' + var + '_disk']
@@ -185,14 +191,18 @@ def diagnostics(dump, out, **kwargs):
     out['rt/total_fails'] = np.sum(dump['fails'] > 0, axis=(1,2))
 
     # This isn't useful in single-precision
+    # TODO ensure it's just the recorded one if present
     #out['t/MaxDivB'] = np.max(dump['divB'])
 
 def print_flags(dump, out, **kwargs):
     """Just check floor and failure flags. Used as a cursory check for run sanity
     """
-    total_floors = np.sum(dump['floors'] > 0, axis=(1,2))
-    total_fails = np.sum(dump['fails'] > 0, axis=(1,2))
-    print("{} floors: {} failures: {}".format(dump.fname, total_floors, total_fails), file=sys.stderr)
+    total_cells = np.sum(dump['1'])
+    total_floors = np.sum(dump['fflag'] > 0)
+    total_fails = np.sum(dump['pflag'] > 0)
+    print("{} floors: {} ({:.3}%) failures: {} ({:.3}%)".format(os.path.basename(dump.fname),
+                                            total_floors, total_floors / total_cells * 100,
+                                            total_fails, total_fails / total_cells * 100), file=sys.stderr)
     # TODO some automated "bad" criterion
 
 def print_divb(dump, out, **kwargs):
@@ -306,7 +316,7 @@ def jet_cut_lite(dump, out, **kwargs):
     for var in ['rho', 'Pg', 'u^r', 'u^th', 'u^3', 'b^r', 'b^th', 'b^3', 'b', 'inv_beta', 'Ptot']:
         out['rt/' + var + '_jet'] = shell_avg(dump, var, mask=is_jet)
     del is_jet
-    
+
 
 def lumproxy(dump, out, **kwargs):
     """Luminosity proxy from GRMHD code comparison '19

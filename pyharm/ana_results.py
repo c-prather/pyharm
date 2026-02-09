@@ -202,7 +202,8 @@ class AnaResults(object):
             
 
     def __del__(self):
-        if 'file' in self.__dict__ and not isinstance(self.file, dict):
+        # TODO test this more elegantly
+        if 'file' in self.__dict__ and not (isinstance(self.file, dict) or isinstance(self.file, list)):
             self.file.close()
 
     def __getitem__(self, key):
@@ -337,7 +338,7 @@ class AnaResults(object):
                     ret_i.append(G.coords.phi(native_coords[:, 0, 0, :]))
 
             ret_grids = np.meshgrid(*reversed(ret_i))
-            ret_grids.reverse()
+            ret_grids = tuple(reversed(ret_grids))
 
         if th_r is None and mesh == True:
             self.cache[ivar] = ret_grids
