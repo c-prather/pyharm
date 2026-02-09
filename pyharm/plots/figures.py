@@ -143,9 +143,8 @@ def simple(fig, dump, diag, plotrc):
     ax_flux = [plt.subplot(gs[1, :]), plt.subplot(gs[2, :])]
     plotrc['log'] = True
     plot_slices(ax_slc[0], ax_slc[1], dump, 'rho', **plotrc)
-    ana = AnaResults(diag)
-    plot_hst(ax_flux[0], ana, 'Mdot', tline=dump['t'], xlabel="", xticklabels=[])
-    plot_hst(ax_flux[1], ana, 'phi_b', tline=dump['t'])
+    plot_hst(ax_flux[0], diag, 'Mdot', tline=dump['t'], xlabel="", xticklabels=[])
+    plot_hst(ax_flux[1], diag, 'phi_b', tline=dump['t'])
     fig.subplots_adjust(hspace=0.25, bottom=0.05, top=0.95)
     # Make sure frame.py doesn't set a title
     plotrc['no_title'] = True
@@ -172,9 +171,8 @@ def traditional(fig, dump, diag, plotrc):
 
     # FLUXES
     if diag is not None:
-        ana = AnaResults(diag)
-        plot_hst(ax_flux(6), ana, 'mdot', tline=dump['t'], xticklabels=[])
-        plot_hst(ax_flux(8), ana, 'phi_b', tline=dump['t'])
+        plot_hst(ax_flux(6), diag, 'mdot', tline=dump['t'], xticklabels=[])
+        plot_hst(ax_flux(8), diag, 'phi_b', tline=dump['t'])
         plotrc['no_title'] = True # We have an indication of the time, so don't title with it
     else:
         print("Not plotting fluxes!", file=sys.stderr)

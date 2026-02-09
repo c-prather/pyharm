@@ -121,20 +121,16 @@ def get_dump_time(fname):
 
 def get_dump_type(fname):
     """Attempt to get an unknown dump's type even if we can't load it"""
-    filter = _get_filter_class(fname)
-    if filter == KHARMAFile:
-        name = "KHARMA"
-    elif filter == Iharm3DFile:
-        name = "iharm3D"
-    elif filter == KORALFile:
-        name = "KORAL"
-    elif filter == Iharm3DRestart:
-        name = "iharm3D (restart)"
-    elif filter == HAMRFile:
-        name = "H-AMR"
-    elif filter == HARM2DFile:
-        name = "iharm2d"
-    return name
+    # TODO define pretty names inside the classes?
+    return {
+        KHARMAFile: "KHARMA",
+        Iharm3DFile: "iharm3D",
+        Iharm3DRestart: "iharm3D (restart)",
+        KORALFile: "KORAL",
+        HAMRFile: "H-AMR",
+        HARM2DFile: "iharm2d"
+    }[_get_filter_class(fname)]
+
 
 def read_hdr(fname):
     """Get just the header/params embedded in a simulation file.
