@@ -285,13 +285,13 @@ class FluidState:
             i, j = int(key[-3]), int(key[-1])
             if key[-5:-4] == "T":
                 return variables.T_mixed(self, i, j)
-            elif key[-7:-4] == "TEM":
+            elif key[-7:-4] == "TEM" or key[-8:-4] == "T_EM":
                 return variables.TEM_mixed(self, i, j)
-            elif key[-9:-4] == "TPAKE":
+            elif key[-9:-4] == "TPAKE" or key[-10:-4] == "T_PAKE":
                 return variables.TPAKE_mixed(self, i, j)
-            elif key[-7:-4] == "TEN":
+            elif key[-7:-4] == "TEN" or key[-8:-4] == "T_EN":
                 return variables.TEN_mixed(self, i, j)
-            elif key[-7:-4] == "TFl":
+            elif key[-7:-4] == "TFl" or key[-8:-4] == "T_Fl":
                 return variables.TFl_mixed(self, i, j)
 
         if ((key[-2:] == "^0" or key[-2:] == "^1" or key[-2:] == "^2" or key[-2:] == "^3")
@@ -320,11 +320,11 @@ class FluidState:
 
         # Return an array of the correct size filled with just zero or one
         # Don't cache these
-        # TODO avoid file read?
+        # TODO we always have a size, right?  Right?
         if key in ('zero', '0'):
-            return np.zeros_like(self['rho'])
+            return np.zeros((self['n1'], self['n2'], self['n3']))
         if key in ('one', '1'):
-            return np.ones_like(self['rho'])
+            return np.ones((self['n1'], self['n2'], self['n3']))
         if self.fname != "memory_array":
             # Read things that we haven't cached and absolutely can't calculate
             # The reader keeps its own cache, so we don't add its items to ours

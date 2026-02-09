@@ -66,8 +66,8 @@ try:
     from mpi4py.futures import MPICommExecutor, MPIPoolExecutor
     if MPI.COMM_WORLD.Get_rank() == 0:
         print("MPI Available", file=sys.stderr)
-    # Use MPI unless we're alone
-    use_mpi = (MPI.COMM_WORLD.Get_size() > 1)
+    # Use MPI if we've gone and loaded it, process binding sucks
+    use_mpi = True
     def do_out():
         return MPI.COMM_WORLD.Get_rank() == 0
 except ImportError:
@@ -105,6 +105,16 @@ def out_path(run_path, kwargs):
         out_base_path = os.path.realpath(kwargs['output_dir'])
 
     return run_path.replace(base_path, out_base_path)
+
+def frame_print(fname, kwargs):
+    # TODO surely we can tweak this to update tqdm instead!
+    tstart, tend = float(kwargs['tstart']), float(kwargs['tend'])
+    tdump = pyharm.io.get_dump_time(fname)
+    if (tstart is not None and tdump < tstart) or \
+        (tend is not None and tdump > tend):
+        return
+    print("Imaging t={}".format(int(tdump)), file=sys.stderr)
+    frame(fname, kwargs)
 
 @click.command(cls=ExtensibleCmd)
 @click.argument('movie_types', nargs=1) # does click support list args?
@@ -229,9 +239,10 @@ def movie(movie_types, paths, **kwargs):
         movie_name = movie_type+("_"+kwargs['tag'] if kwargs['tag'] != "" else "")
         frame_dir = os.path.join(kwargs['out_path'], "frames_"+movie_name)
         # Unless we're resuming a previous video, just kill the directory
-        if not kwargs['resume'] and os.path.exists(frame_dir):
-            shutil.rmtree(frame_dir)
-        os.makedirs(frame_dir, exist_ok=True)
+        if do_out():
+            if not kwargs['resume'] and os.path.exists(frame_dir):
+                shutil.rmtree(frame_dir)
+            os.makedirs(frame_dir, exist_ok=True)
 
         # Option to avoid loading diag file since not everything needs it
         # TODO mark whether given movies even require diag
@@ -301,15 +312,16 @@ def movie(movie_types, paths, **kwargs):
                 # Everything is set by MPI.  We inherit a situation and use it
                 with MPICommExecutor() as executor:
                     if executor is not None:
-                        print("Imaging {} files across pool size {}".format(len(files), MPI.COMM_WORLD.Get_size()), file=sys.stderr)
-                        tqdm.tqdm(executor.map(frame, files, (kwargs,)*len(files)))
+                        comm_size = MPI.COMM_WORLD.Get_size()
+                        print("Imaging {} files across pool size {}".format(len(files), comm_size), file=sys.stderr)
+                        executor.map(frame_print, files, (kwargs,)*len(files))
             else:
                 print("Using {} processes".format(nthreads))
                 with multiprocessing.Pool(nthreads) as pool:
                     args = zip(files, (kwargs,)*len(files))
                     pool.starmap_async(frame, tqdm.tqdm(args, total=len(files))).get(720000)
 
-        if kwargs['encode']:
+        if do_out() and kwargs['encode']:
             movie_path = os.path.join(kwargs['encode_path'], movie_name+".mp4")
             print(f"Encoding to {movie_path}")
             framerate = 8 if len(files) < 300 else 24

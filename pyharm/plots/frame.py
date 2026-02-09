@@ -79,8 +79,8 @@ def do_plot(fig, dump, movie_type, plotrc):
                 plotrc['log'] = True
 
             # Various options 
-            if "_poloidal" in movie_type or "_2d" in movie_type
-                or kwargs['2d']:
+            # TODO move all these to arguments, start automatically tagging some things
+            if "_poloidal" in movie_type or "_2d" in movie_type:
                 ax = plt.subplot(1, 1, 1)
                 movie_type = movie_type.replace("_poloidal","")
                 var = movie_type
@@ -155,13 +155,13 @@ def do_plot(fig, dump, movie_type, plotrc):
 
 def frame(fname, kwargs):
     # If we're outside the timeframe we don't need to make *anything*
-    tstart, tend = kwargs['tstart'], kwargs['tend']
+    tstart, tend = float(kwargs['tstart']), float(kwargs['tend'])
     tdump = io.get_dump_time(fname)
     if tdump is None:
         # TODO yell about not knowing dump times
         return
-    if (tstart is not None and tdump < float(tstart)) or \
-        (tend is not None and tdump > float(tend)):
+    if (tstart is not None and tdump < tstart) or \
+        (tend is not None and tdump > tend):
         return
 
     # Check through movies for which we've run/need to run,
@@ -194,9 +194,6 @@ def frame(fname, kwargs):
     # If we don't have any frames to make, return
     if len(movie_types) == 0:
         return
-
-    # Only if we aren't using the progress bar
-    #print("Imaging t={}".format(int(tdump)), file=sys.stderr)
 
     # This just attaches the file and creates a grid.  We do need to specify
     # if any movie will need ghosts, for the index math

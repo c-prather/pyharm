@@ -69,7 +69,7 @@ def get_fnames(path, prefer_iharm3d=False):
     # We specifically exclude anything named grid.h5 and eht_out.h5, as well as other possible .h5 analysis files
     # We also exclude named parthenon output like KHARMA's *final.{phdf,rhdf}; these are valid files, but out of cadence
     folders = ("dumps_kharma", "dumps", ".")
-    fnames = ("*.out0.[0-9][0-9][0-9][0-9][0-9]", "*.out[0-9].[0-9][0-9][0-9][0-9][0-9]", "dump_*", "dump[0-9][0-9][0-9]")
+    fnames = ("*.out0.[0-9][0-9][0-9][0-9][0-9]", "*.out[1-9].[0-9][0-9][0-9][0-9][0-9]", "dump_*", "dump[0-9][0-9][0-9]")
     exts = (".phdf", ".h5", ".rhdf", "")
     if prefer_iharm3d:
         # Just prefer a "dumps" folder over "dumps_kharma."
@@ -78,11 +78,11 @@ def get_fnames(path, prefer_iharm3d=False):
     for scheme in itertools.product(folders, fnames, exts):
         files = np.sort(glob(os.path.join(path, scheme[0], scheme[1]+scheme[2])))
         if len(files) > 0:
-            # Explicitly take out some common things in dump directories
+            # Explicitly take out some common non-dump things in dump directories
             files = [f for f in files if ("grid" not in f) and ("eht_out" not in f)]
             return files
 
-    raise FileNotFoundError("No dump files found at {}/{}".format(os.getcwd(),path))
+    raise FileNotFoundError("No dump files found at {}".format(os.path.realpath(path)))
 
 def _get_filter_class(fname):
     """Internal pyharm i/o function to choose which class to use when reading a new file.

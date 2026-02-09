@@ -87,8 +87,8 @@ def _model_pretty(folder):
     else:
         return folder.replace("")
 
-def radial_profile(ax, result, var, arange=-1000, window=(2,50), disk=True, plot_std=False, plot_eh=False, selector=None, tag="",
-                   print_time=False, model_shared_portion=0, **kwargs):
+def _radial_profile(ax, result, var, arange=-1000, window=(1,500), disk=True, plot_std=False, plot_eh=False, selector=None, tag="",
+                   print_time=False, model_shared_portion=0, plotrc={}, **kwargs):
 
     if selector is not None and not selector(result.tag):
         return
@@ -103,16 +103,10 @@ def radial_profile(ax, result, var, arange=-1000, window=(2,50), disk=True, plot
     # Get just the relevant radial slice so y-limits get set properly
     r_slice = _get_r_slice(result, (window[0]-1, window[1]+20))
 
-    if disk:
-        tyvals = result['rt/{}_disk'.format(var)][avg_slice, r_slice]
-    else:
-        try:
-            tyvals = result['rt/{}_all'.format(var)][avg_slice, r_slice]
-        except (OSError,IOError):
-            tyvals = result['rt/{}_disk'.format(var)][avg_slice, r_slice] + result['rt/{}_notdisk'.format(var)][avg_slice, r_slice]
+    tyvals = result['rt/{}'.format(var)][avg_slice, r_slice]
 
     yvals = np.mean(tyvals, axis=0)
-    p = ax.loglog(result['r'][r_slice], yvals, label=model+("",r" {}-{} $t_g$".format(*times))[print_time], **kwargs)
+    p = ax.plot(result['r'][r_slice], yvals, label=model+("",r" {}-{} $t_g$".format(*times))[print_time], **plotrc)
     if plot_std:
         yerrs = np.std(tyvals, axis=0)
         ax.fill_between(result['r'][r_slice], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
@@ -248,32 +242,46 @@ def res_study_avg_std(results, kwargs, plotrc={}):
     return fig
 
 def default_radial_averages(results, kwargs):
-    if kwargs['vars'] is None:
+    if kwargs['varlist'] is None:
         vars = ('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^3', 'sigma_post', 'inv_beta_post')
     else:
-        vars = kwargs['vars']
+        vars = kwargs['varlist']
 
-    for result in results.values():
-        # Radial profiles of variables
-        nx = min(len(vars), 4)
-        ny = (len(vars)-1)//4+1
-        fig, _ = plt.subplots(ny, nx, figsize=(4*nx,4*ny))
-        ax = fig.get_axes()
+    # Radial profiles of variables
+    nx = min(len(vars), 4)
+    ny = (len(vars)-1)//4+1
+    fig, _ = plt.subplots(ny, nx, figsize=(4*nx,4*ny))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(vars):
+            window = _radial_profile(ax[a], result, var, **kwargs)
 
-        window = plot_radial_averages(ax, results, kwargs, default_r=50)
+    return fig
 
-def radial_fluxes(results, kwargs):
-    for result in results.values():
-        fig, _ = plt.subplots(1,3, figsize=(14,4))
-        ax = fig.get_axes()
-        window = plot_radial_averages(ax, results, kwargs, default_r=20)
+def jet_fluxes(results, kwargs):
+    if kwargs['varlist'] is None:
+        vars = ('Mdot_jet', 'P_jet', 'P_EM_jet')
+    else:
+        vars = kwargs['varlist']
 
+    fig, _ = plt.subplots(len(vars), 1, figsize=(7, 3*len(vars)))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(vars):
+            window = _radial_profile(ax[a], result, var, **kwargs)
+            if a < len(vars)-1:
+                ax[a].set_xlabel('')
+                ax[a].set_xticklabels([])
+                ax[a].tick_params(length=0)
+    fig.subplots_adjust(left=0.2, hspace=0.02)
+
+    return fig
 
 def disk_momentum(results, kwargs):
-    kwargs['vars'] = "u_3"
+    kwargs['varlist'] = "u_3"
     return radial_averages(results, kwargs)
 
-def plot_eh_fluxes(ax, result, per=False):
+def _plot_eh_fluxes(ax, result, per=False):
     if per:
         tag = '_per'
     else:
@@ -283,7 +291,7 @@ def plot_eh_fluxes(ax, result, per=False):
         ax[a].set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
         ax[a].grid(True)
 
-def plot_eh_phi_versions(ax, result):
+def _plot_eh_phi_versions(ax, result):
     for a,var in enumerate(('phi_b', 'phi_b_upper', 'phi_b_lower')):
         ax[a].plot(result['t'], result['t/{}'.format(var)], label=result.tag)
         ax[a].set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
@@ -292,19 +300,19 @@ def plot_eh_phi_versions(ax, result):
     ax[0].plot(result['t'], np.abs(result['t/phi_b_upper'])+np.abs(result['t/phi_b_lower']), label=result.tag+" hemispheres")
 
 def eh_phi_versions(results, kwargs):
-    for result in results.values():
+    for result in results:
         # Event horizon fluxes
         fig, _ = plt.subplots(3,1, figsize=(7,7))
         axes = fig.get_axes()
-        plot_eh_phi_versions(axes, result)
+        _plot_eh_phi_versions(axes, result)
         plt.subplots_adjust(wspace=0.4)
     return fig
 
 def eh_fluxes(results, kwargs):
     fig, _ = plt.subplots(4,1, figsize=(7,7))
     ax = fig.get_axes()
-    for result in results: #.values():
-        plot_eh_fluxes(ax, result)
+    for result in results:
+        _plot_eh_fluxes(ax, result)
 
     ax[0].legend()
     plt.subplots_adjust(wspace=0.4)
