@@ -320,11 +320,17 @@ class FluidState:
 
         # Return an array of the correct size filled with just zero or one
         # Don't cache these
-        # TODO we always have a size, right?  Right?
+        # TODO be able to calculate what *size* we are, not just slice
         if key in ('zero', '0'):
-            return np.zeros((self['n1'], self['n2'], self['n3']))
+            if len(self.cache.keys()) > 0:
+                return np.zeros_like(self.cache[list(self.cache.keys())[0]])
+            else:
+                return np.zeros_like(self['rho'])
         if key in ('one', '1'):
-            return np.ones((self['n1'], self['n2'], self['n3']))
+            if len(self.cache.keys()) > 0:
+                return np.ones_like(self.cache[list(self.cache.keys())[0]])
+            else:
+                return np.zeros_like(self['rho'])
         if self.fname != "memory_array":
             # Read things that we haven't cached and absolutely can't calculate
             # The reader keeps its own cache, so we don't add its items to ours

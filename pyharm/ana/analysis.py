@@ -34,6 +34,7 @@ __license__ = """
 
 import sys
 import numpy as np
+import warnings
 
 from ..fluid_state import FluidState
 from . import analyses
@@ -91,10 +92,11 @@ def analyze(args):
 
 def analyze_catch_err(args):
     try:
+        warnings.simplefilter("ignore")
         return analyze(args)
     except Exception as e:
         # Make sure we still surface errors when running under MPI,
         # but don't crash the run on a bad file read.
         print(e, file=sys.stderr)
-        print("Failed to analyze dump number {}".format(n), file=sys.stderr)
+        print("Failed to analyze dump", file=sys.stderr)
         return None

@@ -59,7 +59,7 @@ try:
     if MPI.COMM_WORLD.Get_rank() == 0:
         print("MPI Available", file=sys.stderr)
     # Use MPI unless we're alone
-    use_mpi = (MPI.COMM_WORLD.Get_size() > 1)
+    use_mpi = True
     def do_out():
         return MPI.COMM_WORLD.Get_rank() == 0
 except ImportError:
@@ -138,7 +138,7 @@ def analysis(ana_types, paths, **kwargs):
         # We passed single file arguments only.  We use this signal to treat them as one movie.
         path_dirs = [None]
     # Total movies: types * runs
-    if do_out(): print("Analyzing ",len(path_dirs)," runs", file=sys.stderr)
+    if do_out(): print(f"Analyzing {len(path_dirs)} runs", file=sys.stderr)
 
     for run_path in path_dirs:
         if do_out(): print("Running analyses {} on model {}".format(ana_types, run_path), file=sys.stderr)
