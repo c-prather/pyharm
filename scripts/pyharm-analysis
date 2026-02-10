@@ -201,16 +201,22 @@ def analysis(ana_types, paths, **kwargs):
                 hdr.write_hdr(hdr_preserve, outfile)
 
             # Copy in any diagnostics that are present
-            try:
-                fname = glob.glob("*.hst")[0]
-                if do_out(): print("Loading diag file {}".format(fname), file=sys.stderr)
-                diag = pyharm.io.read_log(fname)
-                if not 'diag' in outfile:
-                    outfile.create_group('diag')
-                hdr.dict_to_hdf5(diag, outfile['diag'])
-            except (IndexError, IOError):
-                # But don't cry if we can't
-                pass
+            diag_names = ("*.hst", "*/*.hst")
+            for diag_name in diag_names:
+                if len(glob.glob(os.path.join(run_path, diag_name))) > 0:
+                    fname = glob.glob(os.path.join(run_path, diag_name))[0]
+                    if do_out(): print("Trying to load diagnostics from {}".format(fname), file=sys.stderr)
+                    try:
+                        # This works for either reduction results (.h5) or KHARMA's history file (.hst)
+                        diag = pyharm.io.read_log(fname)
+                        if not 'diag' in outfile:
+                            outfile.create_group('diag')
+                        hdr.dict_to_hdf5(diag, outfile['diag'])
+                        break
+                    except (IOError, pandas.errors.ParserError) as e:
+                        print(e, file=sys.stderr)
+                        continue
+
             # And record pretty much the only relevant command-line parameters
             outfile['avg/start'] = kwargs['t_avg_start']
             outfile['avg/end'] = kwargs['t_avg_end']

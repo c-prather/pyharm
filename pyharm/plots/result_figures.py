@@ -317,3 +317,40 @@ def eh_fluxes(results, kwargs):
     ax[0].legend()
     plt.subplots_adjust(wspace=0.4)
     return fig
+
+def mdot_versions(results, kwargs):
+    fig, _ = plt.subplots(3,1, figsize=(10,10))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(('mdot', 'Mdot', 'Mdot_5')):
+            # Mdot
+            ax[0].plot(result['t'], result['t/{}'.format(var)], label=f"{result.tag} {var}")
+            ax[0].set_ylabel(pyharm.pretty('mdot'), rotation=0, ha='right')
+            ax[0].grid(True)
+            # Phi normalized on that mdot
+            ax[1].plot(result['t'], result['Phi_b'] / np.sqrt(result[f'smoothed_{var}']))
+            yl = r"$\frac{\Phi_{BH}}{\sqrt{\langle " + pyharm.pretty('mdot', segment=True) + r"\rangle}}$"
+            ax[1].set_ylabel(yl, rotation=0, ha='right')
+            ax[1].grid(True)
+        # Versions of Edot
+        for a,var in enumerate(('Edot', 'Edot_5')):
+            ax[2].plot(result['t'], result[var] / result['smoothed_mdot'], label=f"{result.tag} {var}")
+        ax[2].plot(result['t'], result['edot'], label=f"{result.tag} edot")
+        fe_i = i_of(dump['r1d'], 40.)
+        ax[2].plot(result['t'], result['FE'][fe_i] / result['smoothed_mdot'], label=f"{result.tag} Edot_40")
+        ax[2].set_ylabel(pyharm.pretty('edot'), rotation=0, ha='right')
+        ax[2].grid(True)
+
+        # Versions of eta
+        for a,var in enumerate(('Edot', 'Edot_5')):
+            ax[3].plot(result['t'], result[var] / result['smoothed_mdot'], label=f"{result.tag} {var}")
+        ax[3].plot(result['t'], result['edot'], label=f"{result.tag} edot")
+        fe_i = i_of(dump['r1d'], 40.)
+        ax[3].plot(result['t'], result['FE'][fe_i] / result['smoothed_mdot'], label=f"{result.tag} Edot_40")
+        ax[3].set_ylabel(pyharm.pretty('edot'), rotation=0, ha='right')
+        ax[3].grid(True)
+
+    ax[0].legend()
+    ax[2].legend()
+    plt.subplots_adjust(wspace=0.4)
+    return fig

@@ -136,7 +136,12 @@ def pretty(var, segment=False):
     if var in pretty_dict:
         ret = pretty_dict[var]
     elif var.split("_")[0] in pretty_dict:
-        ret = pretty_dict[var.split("_")[0]] + r"_\text{" + "_".join(var.split("_")[1:]) + r"}"
+        parts = var.split("_")
+        try:
+            # If it's a number the \text will choke
+            ret = pretty_dict[parts[0]] + f"_{int(parts[1])}"
+        except:
+            ret = pretty_dict[parts[0]] + r"_\text{" + "_".join(parts[1:]) + r"}"
     
     if segment:
         return ret
