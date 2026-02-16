@@ -363,7 +363,7 @@ def energies(fig, dump, diag, plotrc):
 def floors(fig, dump, diag, plotrc):
     """Plot which floor are hit where
     """
-    ax_slc = lambda i: plt.subplot(2, 5, i)
+    ax_slc = lambda i: plt.subplot(3, 5, i)
     plotrc['xlabel'] = False
     plotrc['xticks'] = []
     plotrc['log'] = True

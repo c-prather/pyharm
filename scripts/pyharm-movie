@@ -70,7 +70,7 @@ try:
     use_mpi = True
     def do_out():
         return MPI.COMM_WORLD.Get_rank() == 0
-except ImportError:
+except (ImportError, RuntimeError):
     use_mpi = False
     def do_out():
         return True
@@ -108,10 +108,10 @@ def out_path(run_path, kwargs):
 
 def frame_print(fname, kwargs):
     # TODO surely we can tweak this to update tqdm instead!
-    tstart, tend = float(kwargs['tstart']), float(kwargs['tend'])
+    tstart, tend = kwargs['tstart'], kwargs['tend'] # float(kwargs['tstart']), float(kwargs['tend'])
     tdump = pyharm.io.get_dump_time(fname)
-    if (tstart is not None and tdump < tstart) or \
-        (tend is not None and tdump > tend):
+    if (tstart is not None and tdump < float(tstart)) or \
+        (tend is not None and tdump > float(tend)):
         return
     print("Imaging t={}".format(int(tdump)), file=sys.stderr)
     frame(fname, kwargs)
@@ -325,7 +325,7 @@ def movie(movie_types, paths, **kwargs):
             movie_path = os.path.join(kwargs['encode_path'], movie_name+".mp4")
             print(f"Encoding to {movie_path}")
             framerate = 8 if len(files) < 300 else 24
-            call = f"ffmpeg -f image2 -i {os.path.join(frame_dir, "%*.png")} -r {framerate} {kwargs['encode_options']} -y {movie_path}"
+            call = f"ffmpeg -f image2 -i {os.path.join(frame_dir, '%*.png')} -r {framerate} {kwargs['encode_options']} -y {movie_path}"
             subprocess.run(call, shell=True, check=True)
             # Remove from /tmp, it's often not cleaned after jobs
             shutil.rmtree(frame_dir)

@@ -157,13 +157,13 @@ def do_plot(fig, dump, movie_type, plotrc):
 
 def frame(fname, kwargs):
     # If we're outside the timeframe we don't need to make *anything*
-    tstart, tend = float(kwargs['tstart']), float(kwargs['tend'])
+    tstart, tend = kwargs['tstart'], kwargs['tend'] # float(kwargs['tstart']), float(kwargs['tend'])
     tdump = io.get_dump_time(fname)
     if tdump is None:
         # TODO yell about not knowing dump times
         return
-    if (tstart is not None and tdump < tstart) or \
-        (tend is not None and tdump > tend):
+    if (tstart is not None and tdump < float(tstart)) or \
+        (tend is not None and tdump > float(tend)):
         return
 
     # Check through movies for which we've run/need to run,
