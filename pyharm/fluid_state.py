@@ -187,6 +187,13 @@ class FluidState:
         """
         self.units = get_units(MBH, M_unit, gam=self.params['gam'])
 
+    def __contains__(self, key):
+        try:
+            self[key]
+        except ValueError as e:
+            return False
+        return True
+
     def __getitem__(self, key):
         """Get any of a number of different things from the backing dump file, or from a cached version.
         The full list of keys is covered in depth in the documentation at :ref:`keys`.

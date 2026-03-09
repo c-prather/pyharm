@@ -37,6 +37,7 @@ import sys
 
 from .reductions import *
 from .. import io
+from ..defs import FloorFlag_KHARMA
 
 __doc__ = \
 """Groups of particular related reductions performed over a GRMHD run.
@@ -197,13 +198,23 @@ def diagnostics(dump, out, **kwargs):
 def print_flags(dump, out, **kwargs):
     """Just check floor and failure flags. Used as a cursory check for run sanity
     """
-    total_cells = np.sum(dump['1'])
+    total_cells = np.sum(dump['fflag'] >= 0) # -1 is not used anymore, and only ever was for cells not evolved
     total_floors = np.sum(dump['fflag'] > 0)
     total_fails = np.sum(dump['pflag'] > 0)
-    print("{} floors: {} ({:.3}%) failures: {} ({:.3}%)".format(os.path.basename(dump.fname),
+    out_str = str(os.path.basename(dump.fname)) + " "
+    if 'fofcflag' in dump:
+        total_fofc = np.sum(dump['fofcflag'] > 0)
+        out_str += "fofc: {} ({:.3}%) ".format(total_fofc, total_fofc / total_cells * 100)
+    out_str = "floors: {} ({:.3}%) failures: {} ({:.3}%)\n".format(
                                             total_floors, total_floors / total_cells * 100,
-                                            total_fails, total_fails / total_cells * 100), file=sys.stderr)
-    # TODO some automated "bad" criterion
+                                            total_fails, total_fails / total_cells * 100)
+    for i,ff in enumerate(FloorFlag_KHARMA):
+        nfloor = np.sum((dump['fflag'] & ff.value) > 0)
+        if nfloor > 0:
+            out_str += "{}: {} ({:.3}%)\n".format(ff.name, nfloor, nfloor / total_cells * 100)
+    print(out_str, file=sys.stderr, end="")
+
+    # TODO Other "bad" criteria? e.g. negative/NaN/0 etc?
 
 def print_divb(dump, out, **kwargs):
     """Just check divB. Used as a cursory check for restart file sanity

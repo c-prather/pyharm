@@ -322,6 +322,7 @@ def movie(movie_types, paths, **kwargs):
                     pool.starmap_async(frame, tqdm.tqdm(args, total=len(files))).get(720000)
 
         if do_out() and kwargs['encode']:
+            os.makedirs(kwargs['encode_path'], exist_ok=True)
             movie_path = os.path.join(kwargs['encode_path'], movie_name+".mp4")
             print(f"Encoding to {movie_path}")
             framerate = 8 if len(files) < 300 else 24
