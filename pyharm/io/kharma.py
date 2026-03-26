@@ -390,7 +390,7 @@ def read_log(fname):
         inf.readline()
         header = [e.split('=')[1].rstrip() for e in inf.readline().split('[')[1:]]
 
-    tab = pandas.read_table(fname, delim_whitespace=True, comment='#', names=header)
+    tab = pandas.read_table(fname, sep=r"\s+", comment='#', names=header)
     out = {}
     for name in header:
         out[name] = np.array(tab[name])
