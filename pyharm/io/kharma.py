@@ -37,6 +37,7 @@ import glob
 import numpy as np
 import pandas
 import h5py
+import tarfile
 
 from .. import parameters
 from ..util import slice_to_index, i_of
@@ -146,6 +147,9 @@ class KHARMAFile(DumpFile):
                 par_string = par_string.decode("UTF-8")
             params = parameters.parse_parthenon_dat(par_string)
         else:
+            if not isinstance(fname, str):
+                return
+
             # Read from the closest parameter file
             path1 = "/".join(self.fname.split("/")[:-1])+"/*.par"
             fnames = glob.glob(path1)
@@ -171,7 +175,7 @@ class KHARMAFile(DumpFile):
         params['n_step'] = fil.NCycle
         params['num_blocks'] = fil.NumBlocks
         # Add dump number if we've conformed to usual naming scheme
-        fname_parts = self.fname.split("/")[-1].split(".")
+        fname_parts = self.fname.split("/")[-1].split(".") if isinstance(self.fname, str) else []
         if len(fname_parts) > 2:
             try:
                 params['n_dump'] = int(fname_parts[2])
@@ -425,3 +429,20 @@ def read_log(fname):
             t_last = t
 
     return out
+
+class KHARMATarFile(KHARMAFile):
+
+    def __init__(self, filename, ghost_zones=False, params=None):
+        """Create an KHARMAFile object -- does not keep handles except when reading.
+        """
+        tarpath, member = filename
+        self.tf = tarfile.open(tarpath)
+        super(KHARMATarFile, self).__init__(self.tf.extractfile(member), ghost_zones, params)
+
+    @classmethod
+    def get_dump_time(cls, fname):
+        tarpath, member = fname
+        tf = tarfile.open(tarpath)
+        return super(KHARMATarFile, cls).get_dump_time(tf.extractfile(member))
+
+

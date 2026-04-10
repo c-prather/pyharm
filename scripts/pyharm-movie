@@ -192,7 +192,7 @@ def movie(movie_types, paths, **kwargs):
     """
 
     # Enumerate runs we want to image, by absolute path
-    path_dirs = [os.path.realpath(p) for p in paths if os.path.isdir(p)]
+    path_dirs = [os.path.realpath(p) for p in paths if (os.path.isdir(p) or ".tar" in p)]
     if len(path_dirs) == 0:
         # We passed single file arguments only.  We use this signal to treat them as one movie.
         path_dirs = [None]

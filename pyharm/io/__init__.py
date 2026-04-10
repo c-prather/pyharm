@@ -37,13 +37,14 @@ from glob import glob
 import itertools
 import numpy as np
 import h5py
+import tarfile
 
 # TODO not sure this is how I want names
 from . import iharm3d
 from .iharm3d import Iharm3DFile
 from .iharm3d_restart import Iharm3DRestart
 from . import kharma
-from .kharma import KHARMAFile
+from .kharma import KHARMAFile, KHARMATarFile
 from .harm2d import HARM2DFile
 from .hamr import HAMRFile
 from .koral import KORALFile
@@ -62,6 +63,11 @@ def get_fnames(path, prefer_iharm3d=False):
     """Return what should be the list of fluid dump files in a directory 'path',
     while trying to avoid extraneous files caught in normal globs (e.g., grid.h5, other runs/filetypes)
     """
+    # If we pass a tar archive, we mean everything inside it
+    # TODO multiple tar archives?
+    if ".tar" in path:
+        tf = tarfile.open(path)
+        return tuple([(path, member) for member in tf.getmembers()])
     # These are at best a touchy heuristic
     # The idea is to prefer a KHARMA subdir, then iharm3d subdir, then try the current dir;
     # within the subdir, we prefer Parthenon strict-formatted filenames, then adjacent things, then iharm3d filenames,
@@ -90,7 +96,9 @@ def _get_filter_class(fname):
     afterward.
     TODO keep in mind we should print good errors called on e.g. a gridfile
     """
-    if ".phdf" in fname or ".rhdf" in fname:
+    if isinstance(fname, tuple):
+        return KHARMATarFile
+    elif ".phdf" in fname or ".rhdf" in fname:
         return KHARMAFile
     elif ".h5" in fname:
         with h5py.File(fname, 'r') as f:

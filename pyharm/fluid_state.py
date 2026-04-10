@@ -99,6 +99,10 @@ class FluidState:
             else:
                 self.reader = io.file_reader(data_source, params=params, ghost_zones=ghost_zones)
                 self.multizone = False
+        elif isinstance(data_source, tuple):
+            self.fname = data_source
+            self.reader = io.file_reader(data_source, params=params, ghost_zones=ghost_zones)
+            self.multizone = False
         else:
             self.fname = "memory_array"
 
