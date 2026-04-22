@@ -281,13 +281,26 @@ def disk_momentum(results, kwargs):
     kwargs['varlist'] = "u_3"
     return radial_averages(results, kwargs)
 
-def _plot_eh_fluxes(ax, result, per=False):
+def _plot_eh_fluxes(ax, result, per=False, arange=None):
     if per:
         tag = '_per'
     else:
         tag = ''
-    for a,var in enumerate(('mdot', 'phi_b'+tag, 'abs_ldot'+tag, 'eff'+tag)):
-        ax[a].plot(result['t'], result['t/{}'.format(var)], label=result.tag)
+    # TODO _5 or _EH like above
+    for a,var in enumerate(('mdot', 'phi_b'+tag, 'ldot'+tag, 'eff'+tag)):
+        data = result['t/{}'.format(var)]
+        if 'phi_b' in var:
+            data *= np.sqrt(4*np.pi)
+        pt = ax[a].plot(result['t'], data, label=result.tag)
+        if arange is not None:
+            # Get the times to average
+            avg_slice = _get_t_slice(result, arange)
+            times = (round(result['t'][avg_slice][0]/1000)*1000,
+                    round(result['t'][avg_slice][-1]/1000)*1000)
+            avg = np.mean(data[avg_slice])
+            ax[a].hlines(avg, times[0], times[1], colors=pt[0].get_color(), linestyles='dashed')
+            ax[a].text(times[1], avg, f"{avg:.2f}")
+            
         ax[a].set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
         ax[a].grid(True)
 
@@ -309,12 +322,16 @@ def eh_phi_versions(results, kwargs):
     return fig
 
 def eh_fluxes(results, kwargs):
-    fig, _ = plt.subplots(4,1, figsize=(7,7))
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10
+    fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
     ax = fig.get_axes()
     for result in results:
-        _plot_eh_fluxes(ax, result)
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=(kwargs['arange'] if 'arange' in kwargs else None))
 
     ax[0].legend()
+    if kwargs['ymax_eff'] is not None:
+        ax[3].set_ylim(0, kwargs['ymax_eff'])
     plt.subplots_adjust(wspace=0.4)
     return fig
 

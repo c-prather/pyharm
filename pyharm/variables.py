@@ -72,46 +72,49 @@ fns_dict = {# 4-vectors
             'bcon_bl': lambda dump: np.einsum("ij...,j...->i...", dump['dxdX_bl'], dump['bcon_base']),
             'bcov_bl': lambda dump: np.einsum("ij...,j...->i...", dump['dXdx_bl'], dump['bcov_base']),
             # Renaming
+            'rho': lambda dump: dump['RHO'],
             'u': lambda dump: dump['UU'],
             'p': lambda dump: dump['Pg'],
             'T': lambda dump: dump['Theta'],
             # Fluid parameters: B, pressure, temperature
             'bsq': lambda dump: dump.grid.dot(dump['bcov'], dump['bcon']),
             'b': lambda dump: np.sqrt(dump['bsq']),
-            'Pg': lambda dump: (dump['gam'] - 1.) * dump['UU'],
+            'Pg': lambda dump: (dump['gam'] - 1.) * dump['u'],
             'Pb': lambda dump: dump['bsq'] / 2,
             'Ptot': lambda dump: dump['Pg'] + dump['Pb'],
             'beta': lambda dump: dump['Pg'] / dump['Pb'],
-            'sigma': lambda dump: dump['bsq'] / dump['RHO'],
-            'sigma_cold': lambda dump: dump['bsq'] / dump['RHO'],
-            'sigma_hot': lambda dump: dump['bsq'] / (dump['RHO'] + dump['gam'] * dump['UU']),
-            'Theta': lambda dump: (dump['gam'] - 1) * dump['UU'] / dump['RHO'],
+            'sigma': lambda dump: dump['bsq'] / dump['rho'],
+            'sigma_cold': lambda dump: dump['bsq'] / dump['rho'],
+            'sigma_hot': lambda dump: dump['bsq'] / (dump['rho'] + dump['gam'] * dump['u']),
+            'Theta': lambda dump: dump['Pg'] / dump['rho'],
             # entropy
-            'K': lambda dump: (dump['gam']-1.) * dump['UU'] * pow(dump['RHO'], -dump['gam']),
-            'h': lambda dump: enthalpy(dump),
+            'K': lambda dump: dump['Pg'] * np.power(dump['rho'], -dump['gam']),
+            'h': lambda dump: 1 + dump['Pg'] + dump['u'],
+            'eta': lambda dump: dump['rho'] + dump['Pg'] + dump['u'] + dump['bsq'],
             # Speeds
             'Gamma': lambda dump: lorentz_calc(dump),
-            'cs': lambda dump: np.sqrt(dump['gam'] * dump['Pg'] / (dump['RHO'] + dump['gam'] * dump['UU'])),
+            'cs': lambda dump: np.sqrt(dump['gam'] * dump['Pg'] / (dump['rho'] + dump['gam'] * dump['u'])),
             'vA': lambda dump: alfven_speed(dump),
             'vr': lambda dump: dump["u^r"] / dump["u^t"],
             'Omega': lambda dump: dump["u^phi"] / dump["u^t"] ,
             # TODO magnetosonic, EMHD speed, effective timestep
             # Fluxes in radial direction: Mass, Energy, Angular Momentum
-            'FM': lambda dump: dump['RHO'] * dump['ucon'][1],
-            'FE': lambda dump: -T_mixed(dump, 1, 0),
-            'FE_EM': lambda dump: -TEM_mixed(dump, 1, 0),
-            'FE_Fl': lambda dump: -TFl_mixed(dump, 1, 0),
-            'FE_PAKE': lambda dump: -TPAKE_mixed(dump, 1, 0),
-            'FE_EN': lambda dump: -TEN_mixed(dump, 1, 0),
-            'FE_norho': lambda dump: -T_mixed(dump, 1, 0) - dump['rho']*dump['ucon'][1],
-            'FL': lambda dump: T_mixed(dump, 1, 3),
-            'FL_EM': lambda dump: TEM_mixed(dump, 1, 3),
-            'FL_Fl': lambda dump: TFl_mixed(dump, 1, 3),
-            # Energy current
-            'JE0': lambda dump: -T_mixed(dump, 0, 0),
-            'JE1': lambda dump: -T_mixed(dump, 1, 0),
-            'JE2': lambda dump: -T_mixed(dump, 2, 0),
-            'JE3Fl': lambda dump: -TFl_mixed(dump, 3, 0),
+            'FM': lambda dump: dump['rho'] * dump['ucon'][1],
+            'FE': lambda dump: -dump['T^1_0'],
+            'FE_EM': lambda dump: -dump['T_EM^1_0'],
+            'FE_Fl': lambda dump: -dump['T_Fl^1_0'],
+            'FE_PAKE': lambda dump: -dump['T_PAKE^1_0'],
+            'FE_EN': lambda dump: -dump['T_EN^1_0'],
+            'FE_norho': lambda dump: dump['FE'] - dump['FM'],
+            'FL': lambda dump: dump['T^1_3'],
+            'FL_EM': lambda dump: dump['T_EM^1_3'],
+            'FL_Fl': lambda dump: dump['T_Fl^1_3'],
+            # Energy current (TODO as proper 4v?)
+            'JE0': lambda dump: -dump['T^0_0'],
+            'JE1': lambda dump: dump['FE'],
+            'JE2': lambda dump: -dump['T^2_0'],
+            'JE3': lambda dump: -dump['T^3_0'],
+            'JE3Fl': lambda dump: -dump['T_Fl^3_0'],
             # Bernoulli parameter
             'Be_b': lambda dump: bernoulli(dump, with_B=True),
             'Be_nob': lambda dump: bernoulli(dump, with_B=False),
@@ -123,7 +126,7 @@ fns_dict = {# 4-vectors
             # Current
             'jcov': lambda dump: dump.grid.lower_grid(dump['jcon']),
             'jsq': lambda dump: dump.grid.dot(dump['jcon'], dump['jcov']),
-            'Jsq': lambda dump: dump.grid.dot(dump['jcon'], dump['jcov']) + dump.grid.dot(dump['jcon'], dump['ucov'])**2,
+            'Jsq': lambda dump: dump.grid.dot(dump['jcon'], dump['jcov']) + dump['Jsq_corr'],
             'Jsq_corr': lambda dump: dump.grid.dot(dump['jcon'], dump['ucov'])**2,
             # Diagnostics
             'lam_MRI': lambda dump: lam_MRI(dump),
@@ -146,6 +149,8 @@ fns_dict = {# 4-vectors
 
 def lorentz_calc(dump):
     """Find relativistic gamma-factor w.r.t. normal observer"""
+    # Only bother reading ucon if it's already calculated & cached
+    # Needed as ucon calls *us* to calculate u0
     if 'ucon' in dump.cache:
         return dump['ucon'][0] * dump['lapse']
     else:
@@ -158,78 +163,61 @@ def lorentz_calc(dump):
 
 def ucon_calc(dump):
     """Find contravariant fluid four-velocity"""
-    ucon = np.zeros((4, *dump['U1'].shape))
+    ucon = np.zeros((4, *dump['uvec'][0].shape))
     ucon[0] = dump['Gamma'] / dump['lapse']
-    for mu in range(1, 4):
-        ucon[mu] = dump['uvec'][mu-1] - dump['Gamma'] * dump['lapse'] * dump['gcon'][0, mu]
-
+    ucon[1:] = dump['uvec'] - dump['Gamma'] * dump['lapse'] * dump['gcon'][0, 1:]
     return ucon
-
 
 def bcon_calc(dump):
     """Calculate magnetic field four-vector"""
-    # Return zeros if B is not present
+    # Return zeros if B is not present --
+    # we'll often call this without caring whether the sim had B
     try:
-        B = dump["B"]
+        B = dump['B']
     except (IOError, OSError):
-        B = np.zeros(np.shape(dump["ucov"][1:]))
-    bcon = np.zeros_like(dump['ucon'])
-    bcon[0] = B[0] * dump['ucov'][1] + \
-              B[1] * dump['ucov'][2] + \
-              B[2] * dump['ucov'][3]
-    for mu in range(1, 4):
-        bcon[mu] = (B[mu-1] + bcon[0] * dump['ucon'][mu]) \
-                        / dump['ucon'][0]
+        B = np.zeros(np.shape(dump['ucon'][1:]))
 
+    bcon = np.zeros_like(dump['ucon'])
+    bcon[0] = B[0] * dump['ucov'][1] + B[1] * dump['ucov'][2] + B[2] * dump['ucov'][3]
+    bcon[1:] = (B + bcon[0] * dump['ucon'][1:]) / dump['ucon'][0]
     return bcon
 
 # These are separated because raising/lowering is slow
 def T_con(dump, i, j):
-    gam = dump['gam']
-    return ((dump['RHO'] + gam * dump['UU'] + dump['bsq']) * dump['ucon'][i] * dump['ucon'][j] +
-            ((gam - 1) * dump['UU'] + dump['bsq'] / 2) * dump['gcon'][i, j] - dump['bcon'][i] *
-            dump['bcon'][j])
-
+    return (dump['eta'] * dump['ucon'][i] * dump['ucon'][j] +
+            dump['Ptot'] * dump['gcon'][i, j] - dump['bcon'][i] * dump['bcon'][j])
 
 def T_cov(dump, i, j):
-    gam = dump['gam']
-    return ((dump['RHO'] + gam * dump['UU'] + dump['bsq']) * dump['ucov'][i] * dump['ucov'][j] +
-            ((gam - 1) * dump['UU'] + dump['bsq'] / 2) * dump['gcov'][i, j] - dump['bcov'][i] *
-            dump['bcov'][j])
+    return (dump['eta'] * dump['ucov'][i] * dump['ucov'][j] +
+            dump['Ptot'] * dump['gcov'][i, j] - dump['bcov'][i] * dump['bcov'][j])
 
-
-def T_mixed(dump, i, j):
-    gam = dump['gam']
+def T_mixed(dump, i, j, ):
+    # These are split to maybe avoid calculating/using Ptot if we don't have to
     if i != j:
-        return ((dump['RHO'] + gam * dump['UU'] + dump['bsq']) * dump['ucon'][i] * dump['ucov'][j] +
-                - dump['bcon'][i] * dump['bcov'][j])
+        return dump['eta'] * dump['ucon'][i] * dump['ucov'][j] - dump['bcon'][i] * dump['bcov'][j]
     else:
-        return ((dump['RHO'] + gam * dump['UU'] + dump['bsq']) * dump['ucon'][i] * dump['ucov'][j] +
-                (gam - 1) * dump['UU'] + dump['bsq'] / 2 - dump['bcon'][i] * dump['bcov'][j])
+        return dump['eta'] * dump['ucon'][i] * dump['ucov'][j] + dump['Ptot'] - dump['bcon'][i] * dump['bcov'][j]
 
-
-# "Sub-tensors" representing components of the energy, only used as mixed so far.
+# "Sub-tensors" representing components of the energy
+# TODO cov/con forms? Not needed yet since we do fluxes
 def TEM_mixed(dump, i, j):
     if i != j:
-        return dump['bsq'] * dump['ucon'][i] * dump['ucov'][j] - \
-               dump['bcon'][i] * dump['bcov'][j]
+        return dump['bsq'] * dump['ucon'][i] * dump['ucov'][j] - dump['bcon'][i] * dump['bcov'][j]
     else:
-        return dump['bsq'] * dump['ucon'][i] * dump['ucov'][j] + dump['bsq'] / 2 - \
-               dump['bcon'][i] * dump['bcov'][j]
+        return dump['bsq'] * dump['ucon'][i] * dump['ucov'][j] + dump['bsq'] / 2 - dump['bcon'][i] * dump['bcov'][j]
 
 def TPAKE_mixed(dump, i, j):
     if j != 0:
-        return dump['RHO'] * dump['ucov'][j] * dump['ucon'][i]
+        return dump['rho'] * dump['ucov'][j] * dump['ucon'][i]
     else:
-        return dump['RHO'] * (dump['ucov'][j] + 1) * dump['ucon'][i]
+        return dump['rho'] * (dump['ucov'][j] + 1) * dump['ucon'][i]
 
 def TEN_mixed(dump, i, j):
-    gam = dump['gam']
     if i != j:
         # (u + p) u^i u_j + p delta(i,j)
-        return (gam * dump['UU']) * dump['ucon'][i] * dump['ucov'][j]
+        return (gam * dump['u']) * dump['ucon'][i] * dump['ucov'][j]
     else:
-        return (gam * dump['UU']) * dump['ucon'][i] * dump['ucov'][j] + (gam - 1) * dump['UU']
+        return (gam * dump['u']) * dump['ucon'][i] * dump['ucov'][j] + (gam - 1) * dump['UU']
 
 def TFl_mixed(dump, i, j):
     gam = dump['gam']
@@ -282,12 +270,6 @@ def lam_MRI_transform(dump):
     # From Porth et al (2019) & referenced Takahashi 
     return 2 * np.pi / (np.sqrt(dump['rho']*dump['h'] + dump['bsq']) * (dump['u^3']/dump['u^0'])) * \
             dump['b^th'] * np.sqrt(dump['r']**2 + dump['a']**2 * np.cos(dump['th'])**2)
-
-def enthalpy(dump):
-    return 1 + dump['Pg'] + dump['u']
-
-def entropy(dump): # added by Hyerin (02/14/23)
-    return dump['p']/np.power(dump['rho'],dump['gam'])
 
 def jet_psi(dump):
     sig = dump['sigma']

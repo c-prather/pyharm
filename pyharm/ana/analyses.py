@@ -319,7 +319,8 @@ def jet_cut_lite(dump, out, **kwargs):
     """Compute jet powers with just the default cut from EHTC Paper V '19.
     These are the powers used in the table in that paper and the MAD Code Comparison '22
     """
-    is_jet = dump['Be_b'] > 1
+    #is_jet = dump['Be_b'] > 1
+    is_jet = dump['sigma'] >= 1
     for lum, flux in [['Mdot_jet', 'FM'], ['P_jet', 'FE'], ['P_EM_jet', 'FE_EM'], ['P_PAKE_jet', 'FE_PAKE'], ['P_EN_jet', 'FE_EN'], ['Area_jet', '1']]:
         out['rt/' + lum] = shell_sum(dump, flux, mask=is_jet)
     for lum, flux in [['Area_mag', '1']]:
