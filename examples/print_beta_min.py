@@ -4,10 +4,16 @@ import sys
 import numpy as np
 import pyharm
 
-dump = pyharm.load_dump(sys.argv[1])
+for dumpname in sys.argv[1:]:
 
-Pg_max = np.max(dump['Pg'])
-print("Gas pressure max: ", np.max(dump['Pg']))
-Pb_max = np.max(dump['Pb'])
-print("Mag. pressure max: ", np.max(dump['Pb']))
-print("beta_min: ", Pg_max/Pb_max)
+    dump = pyharm.load_dump(dumpname)
+    print("Dump ", dumpname)
+
+    Pg_max = np.max(dump['Pg'])
+    print("Gas pressure max: ", Pg_max)
+    Pb_max = np.max(dump['Pb'])
+    print("Mag. pressure max: ", Pb_max)
+    print("beta_min: ", Pg_max/Pb_max)
+
+    print("sigma_max: ", np.max(dump['bsq'] / dump['rho']))
+    print("global_sig_ratio", np.max(dump['bsq']) / np.max(dump['rho']))
