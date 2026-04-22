@@ -186,15 +186,18 @@ def analysis(ana_types, paths, **kwargs):
             else:
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 outfile = h5py.File(file_path, 'w')
-            # Copy in the header, either as-is or converted
+            # Try reading like an Illinois HDF5 header, but don't die trying
             is_ilhdf = False
-            with h5py.File(files[0],'r') as inf:
-                if 'header' in inf:
-                    hdr_preserve = hdr.hdf5_to_dict(inf['header'])
-                    if not 'header' in outfile:
-                        outfile.create_group('header')
-                    hdr.dict_to_hdf5(hdr_preserve, outfile['header'])
-                    is_ilhdf = True
+            try:
+                with h5py.File(files[0],'r') as inf:
+                    if 'header' in inf:
+                        hdr_preserve = hdr.hdf5_to_dict(inf['header'])
+                        if not 'header' in outfile:
+                            outfile.create_group('header')
+                        hdr.dict_to_hdf5(hdr_preserve, outfile['header'])
+                        is_ilhdf = True
+            except TypeError:
+                pass
             if not is_ilhdf:
                 # Just put in a written one
                 hdr_preserve = pyharm.io.read_hdr(files[0])

@@ -75,8 +75,8 @@ def get_fnames(path, prefer_iharm3d=False):
     # We specifically exclude anything named grid.h5 and eht_out.h5, as well as other possible .h5 analysis files
     # We also exclude named parthenon output like KHARMA's *final.{phdf,rhdf}; these are valid files, but out of cadence
     folders = ("dumps_kharma", "dumps", ".")
-    fnames = ("*.out0.[0-9][0-9][0-9][0-9][0-9]", "*.out[1-9].[0-9][0-9][0-9][0-9][0-9]", "dump_*", "dump[0-9][0-9][0-9]")
-    exts = (".phdf", ".h5", ".rhdf", "")
+    fnames = ("*.out0.[0-9][0-9][0-9][0-9][0-9]", "*.out[1-9].[0-9][0-9][0-9][0-9][0-9]", "dump_*", "dump[0-9][0-9][0-9]", "*.out0.[0-9][0-9]k", "*.out0.[0-9][0-9][0-9]h")
+    exts = (".phdf", ".h5", ".rhdf", "", ".tar")
     if prefer_iharm3d:
         # Just prefer a "dumps" folder over "dumps_kharma."
         folders = ("dumps", "dumps_kharma", ".")
@@ -86,7 +86,17 @@ def get_fnames(path, prefer_iharm3d=False):
         if len(files) > 0:
             # Explicitly take out some common non-dump things in dump directories
             files = [f for f in files if ("grid" not in f) and ("eht_out" not in f)]
-            return files
+            # Unpack multiple tar files into a single run list. Only tars *or* unpacked files
+            tar_contents = []
+            use_tar = False
+            for f in files:
+                if ".tar" in f:
+                    tar_contents.extend(get_fnames(f))
+                    use_tar = True
+            if use_tar:
+                return tar_contents
+            else:
+                return files
 
     raise FileNotFoundError("No dump files found at {}".format(os.path.realpath(path)))
 
