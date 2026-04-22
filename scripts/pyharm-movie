@@ -129,35 +129,36 @@ def frame_print(fname, kwargs):
 @click.option('--amr-level', default=0, help="AMR level to interpolate KHARMA file with mesh refinement")
 @click.option('--encode', is_flag=True, help="Encode the movie with ffmpeg in x264, with reasonable defaults")
 @click.option('--encode-options', default="-vcodec libx264 -crf 15 -pix_fmt yuv420p", help="Encoding options for ffmpeg calls")
+@click.option('--frames', is_flag=True, help="Output just the frames composing the movie, as images (opposite of --encode)")
 # Figure options
-@click.option('--fig-x', default=16.0, help="Figure width in inches.")
-@click.option('--fig-y', default=9.0, help="Figure height in inches.")
-@click.option('--fig-dpi', default=100, help="DPI of resulting figure.")
-@click.option('--left', default=0.07, help="Left side padding of figure (as in subplots_adjust).")
-@click.option('--right', default=0.93, help="Right side padding of figure (as in subplots_adjust).")
-@click.option('--bottom', default=None, help="Bottom padding of figure (as in subplots_adjust).")
-@click.option('--top', default=None, help="Top padding of figure (as in subplots_adjust).")
-@click.option('--wspace', default=None, help="Width spacing between plots in figure (as in subplots_adjust).")
-@click.option('--hspace', default=None, help="Height spacing between plots in figure (as in subplots_adjust).")
+@click.option('--fig-x', type=float, default=16, help="Figure width in inches.")
+@click.option('--fig-y', type=float, default=9, help="Figure height in inches.")
+@click.option('--fig-dpi', type=int, default=100, help="DPI of resulting figure.")
+@click.option('--left', type=float, default=0.07, help="Left side padding of figure (as in subplots_adjust).")
+@click.option('--right', type=float, default=0.93, help="Right side padding of figure (as in subplots_adjust).")
+@click.option('--bottom', type=float, default=None, help="Bottom padding of figure (as in subplots_adjust).")
+@click.option('--top', type=float, default=None, help="Top padding of figure (as in subplots_adjust).")
+@click.option('--wspace', type=float, default=None, help="Width spacing between plots in figure (as in subplots_adjust).")
+@click.option('--hspace', type=float, default=None, help="Height spacing between plots in figure (as in subplots_adjust).")
 @click.option('--no-title', is_flag=True, help="Omit a plot title e.g. of simulation time.")
 # Dump file plotting options
-@click.option('-g','--ghost_zones', is_flag=True, help="Plot ghost zones.")
+@click.option('-g','--ghost-zones', is_flag=True, help="Plot ghost zones.")
 @click.option('-at','--at','--at-zone', 'at', default=0, help="Phi zone to plot at.")
 @click.option('-av','--av','--average', 'average', is_flag=True, help="Average quantities over phi.")
 @click.option('--sum', is_flag=True, help="Sum quantities over phi.")
 @click.option('-sh','--sh','--shading', 'shading', default='flat', help="Shading: flat, nearest, gouraud.")
-@click.option('--vmin', default=None, help="Colorscale minimum.")
-@click.option('--vmax', default=None, help="Colorscale maximum.")
+@click.option('--vmin', type=float, default=None, help="Colorscale minimum.")
+@click.option('--vmax', type=float, default=None, help="Colorscale maximum.")
 @click.option('--cmap', default='jet', help="Colormap.")
 @click.option('--log', is_flag=True, help="Plot natural log of the specified variable. Colorbar is properly marked vs prepending log_")
-@click.option('-sz','--sz','--size', 'size', default=None, help="Window size, in M each side of central object.")
-@click.option('--xmin', default=None, help="Window X minimum.")
-@click.option('--xmax', default=None, help="Window X maximum.")
-@click.option('--ymin', default=None, help="Window Y minimum.")
-@click.option('--ymax', default=None, help="Window Y maximum.")
+@click.option('-sz','--sz','--size', 'size', type=float, default=None, help="Window size, in M each side of central object.")
+@click.option('--xmin', type=float, default=None, help="Window X minimum.")
+@click.option('--xmax', type=float, default=None, help="Window X maximum.")
+@click.option('--ymin', type=float, default=None, help="Window Y minimum.")
+@click.option('--ymax', type=float, default=None, help="Window Y maximum.")
 @click.option('--log-r', is_flag=True, help="Make the plots logarithmic in radius.")
 @click.option('--overlay-field', is_flag=True, help="Overlay field lines.")
-@click.option('--nlines', default=20, help="Number of total field lines to overlay.")
+@click.option('--nlines', type=int, default=20, help="Number of total field lines to overlay.")
 @click.option('--overlay-grid', is_flag=True, help="Overlay simulation zone borders.")
 @click.option('--overlay-grid-spacing', default=1, help="Only plot grid every X lines.")
 @click.option('--overlay-blocks', is_flag=True, help="Overlay simulation block borders.")
@@ -190,6 +191,13 @@ def movie(movie_types, paths, **kwargs):
     If run within an MPI job/allocation with mpi4py installed, movie.py will attempt to use all allocated nodes to generate
     frames.  YMMV wildly with MPI installations, with mpi4py installed via pip generally a better choice than through conda.
     """
+
+    # Encode if ffmpeg is available and user didn't request frames only
+    try:
+        subprocess.run("ffmpeg --help", shell=True, check=True)
+        kwargs['encode'] = not kwargs['frames']
+    except:
+        pass
 
     # Enumerate runs we want to image, by absolute path
     path_dirs = [os.path.realpath(p) for p in paths if (os.path.isdir(p) or ".tar" in p)]
