@@ -215,16 +215,15 @@ def TPAKE_mixed(dump, i, j):
 def TEN_mixed(dump, i, j):
     if i != j:
         # (u + p) u^i u_j + p delta(i,j)
-        return (gam * dump['u']) * dump['ucon'][i] * dump['ucov'][j]
+        return (dump['gam'] * dump['u']) * dump['ucon'][i] * dump['ucov'][j]
     else:
-        return (gam * dump['u']) * dump['ucon'][i] * dump['ucov'][j] + (gam - 1) * dump['UU']
+        return (dump['gam'] * dump['u']) * dump['ucon'][i] * dump['ucov'][j] + (dump['gam'] - 1) * dump['UU']
 
 def TFl_mixed(dump, i, j):
-    gam = dump['gam']
     if i != j:
-        return (dump['RHO'] + gam * dump['UU']) * dump['ucon'][i] * dump['ucov'][j]
+        return (dump['RHO'] + dump['gam'] * dump['UU']) * dump['ucon'][i] * dump['ucov'][j]
     else:
-        return (dump['RHO'] + gam * dump['UU']) * dump['ucon'][i] * dump['ucov'][j] + (gam - 1) * dump['UU']
+        return (dump['RHO'] + dump['gam'] * dump['UU']) * dump['ucon'][i] * dump['ucov'][j] + (dump['gam'] - 1) * dump['UU']
 
 
 def F_con(dump, i, j):
