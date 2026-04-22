@@ -156,6 +156,12 @@ def do_plot(fig, dump, movie_type, plotrc):
                 fig.subplots_adjust(**adjustrc)
 
 def frame(fname, kwargs):
+    try:
+        make_frame(fname, kwargs)
+    except KeyError as e:
+        print(sys.stderr, f"Error making frame {fname}: skipping!")
+
+def make_frame(fname, kwargs):
     # If we're outside the timeframe we don't need to make *anything*
     tstart, tend = kwargs['tstart'], kwargs['tend'] # float(kwargs['tstart']), float(kwargs['tend'])
     tdump = io.get_dump_time(fname)

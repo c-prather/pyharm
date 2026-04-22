@@ -85,7 +85,13 @@ def get_fnames(path, prefer_iharm3d=False):
         files = np.sort(glob(os.path.join(path, scheme[0], scheme[1]+scheme[2])))
         if len(files) > 0:
             # Explicitly take out some common non-dump things in dump directories
-            files = [f for f in files if ("grid" not in f) and ("eht_out" not in f)]
+            files = [f for f in files if ("grid" not in f) and ("_out" not in f)]
+            # Sometimes the last file is being written & is invalid/unreadable
+            # Eliminate it if so
+            try:
+                get_dump_time(files[-1])
+            except KeyError as e:
+                files = files[:-1]
             return files
 
     raise FileNotFoundError("No dump files found at {}".format(os.path.realpath(path)))
