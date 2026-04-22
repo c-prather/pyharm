@@ -51,7 +51,7 @@ For full figures with default annotations, variable choices, etc, see ``figures.
 
 def _decorate_plot(ax, dump, var, bh=True, xticks=None, yticks=None, frame=True,
                   cbar=True, cbar_ticks=None, cbar_label=None,
-                  label=None, log_r=False, **kwargs):
+                  label=None, no_title=False, log_r=False, **kwargs):
     """Add any extras to plots which are not dependent on data or slicing.
     Accepts arbitrary extra arguments for compatibility -- they are passed nowhere.
     
@@ -91,10 +91,11 @@ def _decorate_plot(ax, dump, var, bh=True, xticks=None, yticks=None, frame=True,
         # What does this do? It looks scary
         # fig.patch.set_visible(False)
 
-    if label is not None:
-        ax.set_title(label)
-    elif isinstance(var, str):
-        ax.set_title(pretty(var))
+    if not no_title:
+        if label is not None:
+            ax.set_title(label)
+        elif isinstance(var, str):
+            ax.set_title(pretty(var))
 
 def plot_xz(ax, dump, var, vmin=None, vmax=None, window=(-40, 40, -40, 40),
             xlabel=True, ylabel=True, native=False, log=False,

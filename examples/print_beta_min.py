@@ -5,7 +5,6 @@ import numpy as np
 import pyharm
 
 for dumpname in sys.argv[1:]:
-
     dump = pyharm.load_dump(dumpname)
     print("Dump ", dumpname)
 
