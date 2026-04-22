@@ -286,7 +286,10 @@ def _plot_eh_fluxes(ax, result, per=False, arange=None):
         tag = '_per'
     else:
         tag = ''
-    # TODO _5 or _EH like above
+    # TODO somehow make this less janky
+    #result.diag_fns['mdot'] = lambda diag: diag['Mdot']
+    #result.diag_fns['eff'] = lambda diag: diag['eff_jet50']
+
     for a,var in enumerate(('mdot', 'phi_b'+tag, 'ldot'+tag, 'eff'+tag)):
         data = result['t/{}'.format(var)]
         if 'phi_b' in var:

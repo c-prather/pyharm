@@ -154,6 +154,8 @@ class AnaResults(object):
                     'eff_per': lambda diag: np.abs(diag['Edot_5'] - diag['mdot']) / diag['mdot'],
                     'eff_eh': lambda diag: np.abs(diag['Edot'] - diag['mdot']) / diag['avg_mdot'],
                     'eff_eh_per': lambda diag: np.abs(diag['Edot'] - diag['mdot']) / diag['mdot'],
+                    'eff_jet50': lambda diag: np.abs(diag['rt/P_jet'][:,i_of(diag['r'], 50.)] - diag['rt/Mdot_jet'][:,i_of(diag['r'], 50.)]) / diag['avg_mdot'],
+                    'eff_jet50_per': lambda diag: np.abs(diag['rt/P_jet'][:,i_of(diag['r'], 50.)] - diag['rt/Mdot_jet'][:,i_of(diag['r'], 50.)]) / diag['mdot'],
                     }
     # How to load variables from a KHARMA .hst file dictionary
     diags_hst = {'mdot': lambda diag: np.abs(diag['Mdot_5M']),
