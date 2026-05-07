@@ -84,9 +84,13 @@ class KHARMAFile(DumpFile):
         """Quickly get just the simulation time represented in the dump file.
         For cutting on time without loading everything
         """
-        with h5py.File(fname, 'r') as dfile:
-            if 'Info' in dfile.keys():
-                return dfile['Info'].attrs['Time']
+        try:
+            with h5py.File(fname, 'r') as dfile:
+                if 'Info' in dfile.keys():
+                    return dfile['Info'].attrs['Time']
+        except:
+            pass
+
         return None
 
     def kharma_standardize(self, var):
