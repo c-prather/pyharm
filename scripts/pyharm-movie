@@ -225,6 +225,10 @@ def movie(movie_types, paths, **kwargs):
             except FileNotFoundError:
                 continue
 
+        # Still writing the last dump
+        if pyharm.io.get_dump_time(files[-1]) is None:
+            files = files[:-1]
+
         # Timestamp formatting: appropriate left padding...
         if kwargs['tend'] is None:
             kwargs['time_digits'] = int(np.log10(pyharm.io.get_dump_time(files[-1])+1))+1
