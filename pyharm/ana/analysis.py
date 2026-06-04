@@ -88,11 +88,16 @@ def analyze(args):
     # Actually do the analyses, adding to the 'out' dictionary
     for type in ana_types:
         analyses.__dict__[type](dump, out, **kwargs)
+
+    del dump
+
     return out
 
 def analyze_catch_err(args):
     try:
         warnings.simplefilter("ignore")
+        if not args[1]['progressbar']:
+            print("Analyzing",args[0].split("/")[-1], file=sys.stderr)
         return analyze(args)
     except Exception as e:
         # Make sure we still surface errors when running under MPI,
