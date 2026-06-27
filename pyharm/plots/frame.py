@@ -81,7 +81,7 @@ def do_plot(fig, dump, movie_type, plotrc):
             # Various options 
             # TODO move all these to arguments, start automatically tagging some things
             if "_poloidal" in movie_type or "_2d" in movie_type \
-                or dump['n3'] == 1:
+                or (dump['n3'] == 1 and dump['n2'] != 1):
                 ax = plt.subplot(1, 1, 1)
                 movie_type = movie_type.replace("_poloidal","")
                 var = movie_type

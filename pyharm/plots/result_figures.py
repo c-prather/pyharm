@@ -281,16 +281,12 @@ def disk_momentum(results, kwargs):
     kwargs['varlist'] = "u_3"
     return radial_averages(results, kwargs)
 
-def _plot_eh_fluxes(ax, result, per=False, arange=None):
-    if per:
-        tag = '_per'
-    else:
-        tag = ''
+def _plot_eh_fluxes(ax, result, per=False, arange=None, vars=('mdot', 'phi_b', 'ldot', 'eff')):
     # TODO somehow make this less janky
     #result.diag_fns['mdot'] = lambda diag: diag['Mdot']
     #result.diag_fns['eff'] = lambda diag: diag['eff_jet50']
 
-    for a,var in enumerate(('mdot', 'phi_b'+tag, 'ldot'+tag, 'eff'+tag)):
+    for a,var in enumerate(vars):
         data = result['t/{}'.format(var)]
         if 'phi_b' in var:
             data *= np.sqrt(4*np.pi)
@@ -325,12 +321,27 @@ def eh_phi_versions(results, kwargs):
     return fig
 
 def eh_fluxes(results, kwargs):
+    # TODO(CEP) handle "per" here, via vars arguments
     xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
     ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10
     fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
     ax = fig.get_axes()
     for result in results:
         _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=(kwargs['arange'] if 'arange' in kwargs else None))
+
+    ax[0].legend()
+    if kwargs['ymax_eff'] is not None:
+        ax[3].set_ylim(0, kwargs['ymax_eff'])
+    plt.subplots_adjust(wspace=0.4)
+    return fig
+
+def jet_efficiency(results, kwargs):
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 3
+    fig, _ = plt.subplots(1,1, figsize=(xsize, ysize))
+    ax = fig.get_axes()
+    for result in results:
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=(kwargs['arange'] if 'arange' in kwargs else None), vars=('eff',))
 
     ax[0].legend()
     if kwargs['ymax_eff'] is not None:
