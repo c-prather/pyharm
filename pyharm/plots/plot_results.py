@@ -46,7 +46,7 @@ from .pretty import pretty
 def plot_hst(ax, diag, var, tline=None, xticklabels=None, xlabel=None, **kwargs):
     """Plot a scalar vs t, optionally marking with a red line representing current time"""
 
-    ax.plot(diag['t'], diag['t/{}'.format(var)], label=pretty(var), **kwargs)
+    ax.plot(diag['t'], diag['t/{}'.format(var)], label=pretty(var)) # TODO restore any important kwargs
     ax.set_ylabel(pretty(var), rotation=0, ha='right')
 
     if tline is not None:
@@ -55,7 +55,10 @@ def plot_hst(ax, diag, var, tline=None, xticklabels=None, xlabel=None, **kwargs)
     ax.legend(loc='upper left')
     ax.grid(True)
 
-    ax.set_xlim((diag['t'][0], diag['t'][-1]))
+    if 'tstart' in kwargs and 'tend' in kwargs:
+        ax.set_xlim((kwargs['tstart'], kwargs['tend']))
+    else:
+        ax.set_xlim((diag['t'][0], diag['t'][-1]))
 
     # This will be the easier way to add whatever
     if xticklabels is not None:

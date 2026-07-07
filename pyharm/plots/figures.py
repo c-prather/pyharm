@@ -143,8 +143,9 @@ def simple(fig, dump, diag, plotrc):
     ax_flux = [plt.subplot(gs[1, :]), plt.subplot(gs[2, :])]
     plotrc['log'] = True
     plot_slices(ax_slc[0], ax_slc[1], dump, 'rho', **plotrc)
-    plot_hst(ax_flux[0], diag, 'Mdot', tline=dump['t'], xlabel="", xticklabels=[])
-    plot_hst(ax_flux[1], diag, 'phi_b', tline=dump['t'])
+    hstrc = {'tstart': plotrc['tstart'], 'tend': plotrc['tend']}
+    plot_hst(ax_flux[0], diag, 'Mdot', tline=dump['t'], xlabel="", xticklabels=[], **hstrc)
+    plot_hst(ax_flux[1], diag, 'phi_b', tline=dump['t'], **hstrc)
     fig.subplots_adjust(hspace=0.25, bottom=0.05, top=0.95)
     # Make sure frame.py doesn't set a title
     plotrc['no_title'] = True

@@ -61,6 +61,7 @@ def do_plot(fig, dump, movie_type, plotrc):
         if movie_type in figures.__dict__:
             # Named movie frame figures in figures.py
             diag = load_result(plotrc['diag'])
+            del plotrc['diag']
             fig = figures.__dict__[movie_type](fig, dump, diag, plotrc)
         else:
             # Try to make a simple movie of just the stated variable
@@ -214,7 +215,7 @@ def make_frame(fname, kwargs):
         # Set plotting options we'll pass on to figure-specific code
         plotrc = {}
         # Plotting options are copied from kwargs and share the same names
-        for key in ('vmin', 'vmax', 'xmin', 'xmax', 'ymin', 'ymax',
+        for key in ('vmin', 'vmax', 'xmin', 'xmax', 'ymin', 'ymax', 'tstart', 'tend',
                     'left', 'right', 'top', 'bottom', 'wspace', 'hspace'):
             # Should be floats or none
             try:

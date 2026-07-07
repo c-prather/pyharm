@@ -7,6 +7,9 @@ import click
 import numpy as np
 import matplotlib.pyplot as plt
 
+import ratarmount
+from ratarmount import TarMount
+
 import gryt.callbacks
 import gryt.gr_fields
 import gryt.grmhd_fields
