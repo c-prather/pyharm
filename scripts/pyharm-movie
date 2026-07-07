@@ -173,6 +173,7 @@ def frame_print(fname, kwargs):
 @click.option('-r', '--resume', is_flag=True, help="Continue a previous run, by skipping existing frames")
 @click.option('-d', '--debug', is_flag=True, help="Serial operation for debugging")
 @click.option('--nompi', is_flag=True, help="Avoid MPI even if available")
+@click.option('--progressbar', is_flag=True, default=False, help="show progressbar")
 @click.version_option(package_name='pyharm')
 def movie(movie_types, paths, **kwargs):
     """Generate movies of type MOVIE_TYPE from dumps at each of PATHS.
@@ -331,7 +332,10 @@ def movie(movie_types, paths, **kwargs):
                 print("Using {} processes".format(nthreads))
                 with multiprocessing.Pool(nthreads) as pool:
                     args = zip(files, (kwargs,)*len(files))
-                    pool.starmap_async(frame, tqdm.tqdm(args, total=len(files))).get(720000)
+                    if kwargs['progressbar']:
+                        pool.starmap_async(frame, tqdm.tqdm(args, total=len(files))).get(720000)
+                    else:
+                        pool.starmap_async(frame, args).get(720000)
 
         if do_out() and kwargs['encode']:
             os.makedirs(kwargs['encode_path'], exist_ok=True)

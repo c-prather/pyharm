@@ -157,6 +157,8 @@ def do_plot(fig, dump, movie_type, plotrc):
 
 def frame(fname, kwargs):
     try:
+        if not kwargs['progressbar']:
+            print("Plotting",fname.split("/")[-1], file=sys.stderr)
         make_frame(fname, kwargs)
     except KeyError as e:
         print(sys.stderr, f"Error making frame {fname}: skipping!")
