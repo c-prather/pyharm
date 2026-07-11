@@ -127,7 +127,8 @@ def plot_xz(ax, dump, var, vmin=None, vmax=None, window=(-40, 40, -40, 40),
     var = flatten_xz(dump, var, at, sum or average, half_cut or native)
     if average:
         var /= dump['n3']
-    if shading != 'flat':
+    # Wrap spherical coordinates to avoid slivers at poles
+    if shading != 'flat' and not native:
         x = wrap(x)
         z = wrap(z)
         var = wrap(var)
@@ -177,6 +178,12 @@ def plot_xz(ax, dump, var, vmin=None, vmax=None, window=(-40, 40, -40, 40),
             ax.set_xlim(window[:2])
             ax.set_ylim(window[2:])
         # TODO alt option of size -r_out to r_out?
+    
+    # If user passed strings, prefer those actually
+    if xlabel and not isinstance(xlabel, (bool,int)):
+        ax.set_xlabel(xlabel)
+    if ylabel and not isinstance(ylabel, (bool,int)):
+        ax.set_ylabel(ylabel)
 
     if not native:
         ax.set_aspect('equal')

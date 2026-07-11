@@ -327,7 +327,24 @@ def eh_fluxes(results, kwargs):
     fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
     ax = fig.get_axes()
     for result in results:
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=(kwargs['arange'] if 'arange' in kwargs else None))
+        arange = kwargs['arange'] if 'arange' in kwargs else None
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange)
+
+    ax[0].legend()
+    if kwargs['ymax_eff'] is not None:
+        ax[3].set_ylim(0, kwargs['ymax_eff'])
+    plt.subplots_adjust(wspace=0.4)
+    return fig
+
+def eh_fluxes_raw(results, kwargs):
+    # TODO(CEP) handle "per" here, via vars arguments
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10
+    fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
+    ax = fig.get_axes()
+    for result in results:
+        arange = kwargs['arange'] if 'arange' in kwargs else None
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, vars=('mdot', 'Phi_b', 'Ldot', 'Edot'))
 
     ax[0].legend()
     if kwargs['ymax_eff'] is not None:
@@ -341,7 +358,8 @@ def jet_efficiency(results, kwargs):
     fig, _ = plt.subplots(1,1, figsize=(xsize, ysize))
     ax = fig.get_axes()
     for result in results:
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=(kwargs['arange'] if 'arange' in kwargs else None), vars=('eff',))
+        arange = kwargs['arange'] if 'arange' in kwargs else None
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, vars=('eff',))
 
     ax[0].legend()
     if kwargs['ymax_eff'] is not None:

@@ -158,11 +158,11 @@ def do_plot(fig, dump, movie_type, plotrc):
 
 def frame(fname, kwargs):
     try:
-        if not kwargs['progressbar']:
+        if 'progressbar' in kwargs and not kwargs['progressbar']:
             print("Plotting",fname.split("/")[-1], file=sys.stderr)
         make_frame(fname, kwargs)
     except KeyError as e:
-        print(sys.stderr, f"Error making frame {fname}: skipping!")
+        print(f"Error making frame {fname}: {e}\nSkipping file!", file=sys.stderr)
 
 def make_frame(fname, kwargs):
     # If we're outside the timeframe we don't need to make *anything*

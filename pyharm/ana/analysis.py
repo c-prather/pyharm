@@ -96,7 +96,7 @@ def analyze(args):
 def analyze_catch_err(args):
     try:
         warnings.simplefilter("ignore")
-        if not args[1]['progressbar']:
+        if 'progressbar' in args[1] and not args[1]['progressbar']:
             print("Analyzing",args[0].split("/")[-1], file=sys.stderr)
         return analyze(args)
     except Exception as e:

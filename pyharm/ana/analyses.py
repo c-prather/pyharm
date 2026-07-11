@@ -60,34 +60,33 @@ def basic(dump, out, **kwargs):
     """Anything necessary for other functions: t, EH fluxes, whether to average
     """
 
-    # We have r_eh from the dump, but sometimes we want to calculate
-    # at a particular location
-    iEH = _get(kwargs, 'iEH')
-
     # Record dump time. TODO fallbacks?
     out['coord/t'] = dump['t']
     # Record whether this dump is part of the average
     out['t/is_avg'] = kwargs['t_avg_start'] < dump['t'] < kwargs['t_avg_end']
 
-    #print("Analyzing t={}".format(int(dump['t'])), file=sys.stderr)
+    if "spherical" in dump.params['base']:
+        # We have r_eh from the dump, but sometimes we want to calculate
+        # at a particular location
+        iEH = _get(kwargs, 'iEH')
 
-    # FIELD STRENGTH
-    # The HARM B_unit is sqrt(4pi)*c*sqrt(rho), and this is standard for EHT comparisons
-    out['t/Phi_b'] = 0.5 * shell_sum(dump, 'abs_B1', at_i=iEH)
+        # FIELD STRENGTH
+        # The HARM B_unit is sqrt(4pi)*c*sqrt(rho), and this is standard for EHT comparisons
+        out['t/Phi_b'] = 0.5 * shell_sum(dump, 'abs_B1', at_i=iEH)
 
-    # FLUXES
-    # Radial profiles of Mdot and Edot, and their particular values
-    # EHT code-comparison normalization has all these values positive
-    for var, flux in [['Edot', 'FE'], ['Mdot', 'FM'], ['Ldot', 'FL']]:
-        out['t/'+var] = shell_sum(dump, flux, at_i=iEH)
-        # Also add the fluxes at r=5, which avoids floor trash and inaccuracies
-        out['t/'+var+'_5'] = shell_sum(dump, flux, at_r=5.)
+        # FLUXES
+        # Radial profiles of Mdot and Edot, and their particular values
+        # EHT code-comparison normalization has all these values positive
+        for var, flux in [['Edot', 'FE'], ['Mdot', 'FM'], ['Ldot', 'FL']]:
+            out['t/'+var] = shell_sum(dump, flux, at_i=iEH)
+            # Also add the fluxes at r=5, which avoids floor trash and inaccuracies
+            out['t/'+var+'_5'] = shell_sum(dump, flux, at_r=5.)
 
-    # Mdot and Edot are defined inward/positive at EH
-    out['t/Mdot'] *= -1
-    out['t/Edot'] *= -1
-    out['t/Mdot_5'] *= -1
-    out['t/Edot_5'] *= -1
+        # Mdot and Edot are defined inward/positive at EH
+        out['t/Mdot'] *= -1
+        out['t/Edot'] *= -1
+        out['t/Mdot_5'] *= -1
+        out['t/Edot_5'] *= -1
 
 def dynamo(dump, out, **kwargs):
     """Compare magnetization in the upper and lower hemisphere of EH, and at 5 r_g
@@ -405,3 +404,26 @@ def omega_bz_advanced(dump, out, **kwargs):
         out['rhth/omega_alt'] *= -alpha_over_omega
 
     del Fcov01, Fcov13, vr, vth, vphi
+
+def explosion_totals(dump, out, **kwargs):
+    """Totals for the Komissarov explosion
+    """
+    # Totals of the conserved vars *directly*
+    out['t/rhou0tot'] = np.sum(dump['cons.rho'])
+    out['t/Etot'] = np.sum(dump['cons.u'])
+    out['t/P1tot'] = np.sum(dump['cons.uvec'][0])
+    out['t/P2tot'] = np.sum(dump['cons.uvec'][1])
+    out['t/P3tot'] = np.sum(dump['cons.uvec'][2])
+
+    out['t/P1abs_tot'] = np.sum(np.abs(dump['cons.uvec'][0]))
+    out['t/P2abs_tot'] = np.sum(np.abs(dump['cons.uvec'][1]))
+    out['t/P3abs_tot'] = np.sum(np.abs(dump['cons.uvec'][2]))
+
+    # Momentum conservation by halves
+    n1mid = dump['n1']//2
+    out['t/P1left'] =  np.sum(np.abs(dump['cons.uvec'][0,:n1mid,:,:]))
+    out['t/P1right'] = np.sum(np.abs(dump['cons.uvec'][0,n1mid:,:,:]))
+    n2mid = dump['n2']//2
+    out['t/P2left'] =  np.sum(np.abs(dump['cons.uvec'][1,:n2mid,:,:]))
+    out['t/P2right'] = np.sum(np.abs(dump['cons.uvec'][1,n2mid:,:,:]))
+
