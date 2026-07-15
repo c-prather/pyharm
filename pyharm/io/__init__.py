@@ -98,9 +98,19 @@ def get_fnames(path, prefer_iharm3d=False):
             # Sometimes the last file is being written & is invalid/unreadable
             # Eliminate it if so
             try:
-                get_dump_time(files[-1])
+                tm = get_dump_time(files[-1])
             except KeyError as e:
                 files = files[:-1]
+                return files
+            # get_dump_time can return None on errors too
+            if tm is None:
+                files = files[:-1]
+                return files
+            # Add 'final' IF it is later than the last existing file
+            final_candidate = glob(os.path.join(path, scheme[0], "*.out*.final"+scheme[2]))
+            if len(final_candidate) > 0:
+                if get_dump_time(final_candidate[0]) > get_dump_time(files[-1]):
+                    files.append(final_candidate[0])
             return files
 
     raise FileNotFoundError("No dump files found at {}".format(os.path.realpath(path)))

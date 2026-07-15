@@ -199,6 +199,8 @@ def movie(movie_types, paths, **kwargs):
         kwargs['encode'] = not kwargs['frames']
     except:
         pass
+    # Encoding by default also requires numeric fnames (TODO switch to modern glob argument thing?)
+    kwargs['numeric_fnames'] = kwargs['encode']
 
     # Enumerate runs we want to image, by absolute path
     path_dirs = [os.path.realpath(p) for p in paths if (os.path.isdir(p) or ".tar" in p)]
@@ -236,7 +238,7 @@ def movie(movie_types, paths, **kwargs):
         else:
             kwargs['time_digits'] = int(np.log10(float(kwargs['tend'])))+1
         # ...and automatically make times accurate to hundredths if t_end < 100
-        if kwargs['time_digits'] < 3:
+        if not kwargs['numeric_fnames'] and kwargs['time_digits'] < 3:
             kwargs['accurate_fnames'] = True
         
         # Add these so we can pass on just the kwargs object to worker function
@@ -338,11 +340,15 @@ def movie(movie_types, paths, **kwargs):
                         pool.starmap_async(frame, args).get(720000)
 
         if do_out() and kwargs['encode']:
+            if len(glob.glob(os.path.join(frame_dir, '*.png'))) == 0:
+                print(f"NOT ENCODING: folder {frame_dir} is empty, no frames were created successfully!")
+                shutil.rmtree(frame_dir)
+                continue
             os.makedirs(kwargs['encode_path'], exist_ok=True)
             movie_path = os.path.join(kwargs['encode_path'], movie_name+".mp4")
             print(f"Encoding to {movie_path}")
             framerate = 8 if len(files) < 300 else 24
-            call = f"ffmpeg -f image2 -i {os.path.join(frame_dir, '%*.png')} -r {framerate} {kwargs['encode_options']} -y {movie_path}"
+            call = f"ffmpeg -f image2 -pattern_type glob -i \"{os.path.join(frame_dir, '*.png')}\" -r {framerate} {kwargs['encode_options']} -y {movie_path}"
             subprocess.run(call, shell=True, check=True)
             # Remove from /tmp, it's often not cleaned after jobs
             shutil.rmtree(frame_dir)
