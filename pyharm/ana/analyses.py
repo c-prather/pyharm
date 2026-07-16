@@ -65,7 +65,7 @@ def basic(dump, out, **kwargs):
     # Record whether this dump is part of the average
     out['t/is_avg'] = kwargs['t_avg_start'] < dump['t'] < kwargs['t_avg_end']
 
-    if "spherical" in dump.params['base']:
+    if not "cartesian" in dump.params['base']:
         # We have r_eh from the dump, but sometimes we want to calculate
         # at a particular location
         iEH = _get(kwargs, 'iEH')
