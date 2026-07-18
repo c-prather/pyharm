@@ -107,7 +107,7 @@ class KHARMAFile(DumpFile):
             # Then read the corresponding vector, cons/prims.u/B
             var = var[:-2] + ("B" if "B" in var[-2:] else "uvec")
 
-        if var[-3] == "[" and var[-1] == "]":
+        if len(var) > 3 and var[-3] == "[" and var[-1] == "]":
             ind = int(var[-2])
             # variable will be stripped later, we need to allocate enough cache!
             #var = var[:-3]
@@ -294,7 +294,7 @@ class KHARMAFile(DumpFile):
                 out = np.zeros((4, *out_shape), dtype=astype)
             elif var.split(".")[-1] in ["B", "uvec"]: # We cache the whole thing even for an index
                 out = np.zeros((3, *out_shape), dtype=astype)
-            elif var[-3] == "[" and var[-1] == "]":
+            elif len(var) > 3 and var[-3] == "[" and var[-1] == "]":
                 # TODO(CEP) real shape
                 out = np.zeros((4, *out_shape), dtype=astype)
                 var = var[:-3]

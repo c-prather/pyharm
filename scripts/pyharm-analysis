@@ -210,7 +210,7 @@ def analysis(ana_types, paths, **kwargs):
                 hdr.write_hdr(hdr_preserve, outfile)
 
             # Copy in any diagnostics that are present
-            diag_names = () #("*.hst", "*/*.hst")
+            diag_names = ("*.hst", "*/*.hst")
             for diag_name in diag_names:
                 if len(glob.glob(os.path.join(run_path, diag_name))) > 0:
                     fname = glob.glob(os.path.join(run_path, diag_name))[0]

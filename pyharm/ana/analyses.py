@@ -409,7 +409,7 @@ def explosion_totals(dump, out, **kwargs):
     """Totals for the Komissarov explosion
     """
     # Totals of the conserved vars *directly*
-    out['t/rhou0tot'] = np.sum(dump['cons.rho'])
+    out['t/consrhotot'] = np.sum(dump['cons.rho'])
     out['t/Etot'] = np.sum(dump['cons.u'])
     out['t/P1tot'] = np.sum(dump['cons.uvec'][0])
     out['t/P2tot'] = np.sum(dump['cons.uvec'][1])
@@ -419,7 +419,32 @@ def explosion_totals(dump, out, **kwargs):
     out['t/P2abs_tot'] = np.sum(np.abs(dump['cons.uvec'][1]))
     out['t/P3abs_tot'] = np.sum(np.abs(dump['cons.uvec'][2]))
 
-    # Momentum conservation by halves
+    # Totals indirectly
+    out['t/rhou0tot'] = np.sum(dump['prims.rho']*dump['u^0'])
+    out['t/T00'] = np.sum(dump['T^0_0'])
+    out['t/T01'] = np.sum(dump['T^0_1'])
+    out['t/T02'] = np.sum(dump['T^0_2'])
+    out['t/T03'] = np.sum(dump['T^0_3'])
+
+    out['t/TFl00'] = np.sum(dump['TFl^0_0'])
+    out['t/TFl01'] = np.sum(dump['TFl^0_1'])
+    out['t/TFl02'] = np.sum(dump['TFl^0_2'])
+    out['t/TFl03'] = np.sum(dump['TFl^0_3'])
+
+    # Added material
+    out['t/consrho_add'] = np.sum((dump['Floors.rhou0add'] > 0) * dump['Floors.rhou0add'])
+    out['t/Etot_add']  = np.sum((dump['Floors.Tadd[0]'] > 0) * dump['Floors.Tadd[0]'])
+    out['t/P1tot_add'] = np.sum((dump['Floors.Tadd[1]'] > 0) * dump['Floors.Tadd[1]'])
+    out['t/P2tot_add'] = np.sum((dump['Floors.Tadd[2]'] > 0) * dump['Floors.Tadd[2]'])
+    out['t/P3tot_add'] = np.sum((dump['Floors.Tadd[3]'] > 0) * dump['Floors.Tadd[3]'])
+    # Subtracted material
+    out['t/consrho_sub'] = np.sum((dump['Floors.rhou0add'] < 0) * dump['Floors.rhou0add'])
+    out['t/Etot_sub']  = np.sum((dump['Floors.Tadd[0]'] < 0) * dump['Floors.Tadd[0]'])
+    out['t/P1tot_sub'] = np.sum((dump['Floors.Tadd[1]'] < 0) * dump['Floors.Tadd[1]'])
+    out['t/P2tot_sub'] = np.sum((dump['Floors.Tadd[2]'] < 0) * dump['Floors.Tadd[2]'])
+    out['t/P3tot_sub'] = np.sum((dump['Floors.Tadd[3]'] < 0) * dump['Floors.Tadd[3]'])
+
+    # Momentum conservation by halves, measuring symmetry
     n1mid = dump['n1']//2
     out['t/P1left'] =  np.sum(np.abs(dump['cons.uvec'][0,:n1mid,:,:]))
     out['t/P1right'] = np.sum(np.abs(dump['cons.uvec'][0,n1mid:,:,:]))
