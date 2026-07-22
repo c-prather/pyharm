@@ -131,6 +131,12 @@ def print_dump_info(fname, verbose=False):
         if verbose:
             print("beta_min (on grid):\t", np.min(dump['beta']))
 
+        # Basics
+        print("rho_max:\t", np.max(dump['rho']))
+        print("rho_min:\t", np.min(dump['rho']))
+        print("u_max:\t", np.max(dump['u']))
+        print("u_min:\t", np.min(dump['u']))
+
         # Sigma
         print("sigma_max (on grid):\t", np.max(dump['sigma']))
         if verbose:

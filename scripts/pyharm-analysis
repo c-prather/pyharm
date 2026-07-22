@@ -101,16 +101,16 @@ def out_path(run_path, kwargs):
 @click.command(cls=ExtensibleCmd)
 @click.argument('ana_types', nargs=1)
 @click.argument('paths', nargs=-1, type=click.Path(exists=True))
-@click.option('--paths_are_files', is_flag=True, help="Paths are single files, treat as a single set")
+@click.option('--paths-are-files', is_flag=True, help="Paths are single files, treat as a single set")
 # Common options
 @click.option('-s', '--start', default=None, help="Only consider dumps after this time, in M")
 @click.option('-e', '--end', default=None, help="Only consider dumps after this time, in M")
-@click.option('-as', '--average_start', default=None, help="Beginning time for time-averages")
-@click.option('-ae', '--average_end', default=None, help="End time for time-averages")
+@click.option('-as', '--average-start', default=None, help="Beginning time for time-averages")
+@click.option('-ae', '--average-end', default=None, help="End time for time-averages")
 @click.option('-a', '--append', is_flag=True, help="Append to existing results file, rather than starting fresh")
 @click.option('-f', '--filename', default="eht_out.h5", help="Name of each result file")
 @click.option('-o', '--output_dir', default=".", help="Base directory for outputs. Any folder structure of models will be preserved.")
-@click.option('--prefer_iharm3d', is_flag=True, help="Prefer iharm3d-format files if available alongside KHARMA output")
+@click.option('--prefer-iharm3d', is_flag=True, help="Prefer iharm3d-format files if available alongside KHARMA output")
 # Extras
 @click.option('-n', '--nthreads', default=None, help="Number of processes to use, if not using MPI")
 @click.option('-d', '--debug', is_flag=True, default=False, help="Serial operation for debugging")
@@ -163,6 +163,8 @@ def analysis(ana_types, paths, **kwargs):
         # We pass filenames themselves, so `frame` doesn't care about run_path
         kwargs['ana_types'] = ana_types
         kwargs['out_path'] = out_path(run_path, kwargs)
+        # Handle just-add-history mode here
+        kwargs['add_hst'] = (ana_types == "add_hst")
 
         # Canonical start & end time for averages
         tend = pyharm.io.get_dump_time(files[-1])
@@ -180,14 +182,14 @@ def analysis(ana_types, paths, **kwargs):
         else:
             kwargs['t_avg_end'] = tend
 
-        # Set filename from analysis if doing one
-        if (kwargs['filename'] == 'eht_out.h5') and not (',' in ana_types):
+        # Set filename from analysis if doing just one
+        if (kwargs['filename'] == 'eht_out.h5') and not (',' in ana_types) and not kwargs['add_hst']:
             kwargs['filename'] = ana_types+"_out.h5"
 
         if do_out():
             # Initialize or open the file, creating parent dir if not present
             file_path = os.path.join(kwargs['out_path'], kwargs['filename'])
-            if kwargs['append']:
+            if kwargs['append'] or kwargs['add_hst']:
                 outfile = h5py.File(file_path, 'a')
             else:
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -225,6 +227,9 @@ def analysis(ana_types, paths, **kwargs):
                     except (IOError, pandas.errors.ParserError) as e:
                         print(e, file=sys.stderr)
                         continue
+            if kwargs['add_hst']:
+                # All we needed to do. Continue.
+                continue
 
             # And record pretty much the only relevant command-line parameters
             outfile['avg/start'] = kwargs['t_avg_start']

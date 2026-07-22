@@ -404,8 +404,12 @@ class KHARMAFile(DumpFile):
 
 def read_log(fname):
     with open(fname) as inf:
-        inf.readline()
-        header = [e.split('=')[1].rstrip() for e in inf.readline().split('[')[1:]]
+        line = inf.readline()
+        # First comment line that isn't generic should be the header
+        # otherwise it's probably not in the parthenon history format
+        while ('#' not in line) or ('History' in line):
+            line = inf.readline()
+        header = [e.split('=')[1].rstrip() for e in line.split('[')[1:]]
 
     tab = pandas.read_table(fname, sep=r"\s+", comment='#', names=header)
     out = {}

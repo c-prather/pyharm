@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+
+__license__ = """
+ File: pyharm-queue
+ 
+ BSD 3-Clause License
+ 
+ Copyright (c) 2020-2026, pyharm contributors
+ All rights reserved.
+ 
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+ 
+ 1. Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+ 
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+ 
+ 3. Neither the name of the copyright holder nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+ 
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+
+import os
+import click
+import glob
+import h5py
+import numpy as np
+from enum import Enum
+
+import pyharm
+
+class JobReturn(Enum):
+    RUNNING = 0
+    SUCCESS = 1
+    CRASH = 2
+    SEGFAULT = 3
+    TIMELIMIT = 4
+    KILLED = 5
+
+def check_log(fname, lastn_lines=10):
+    with open(fname, 'rb') as f:
+        try:  # catch OSError in case of a one line file 
+            f.seek(-2, os.SEEK_END)
+            nlines = 0
+            # Scroll back several lines
+            while nlines <= lastn_lines:
+                if f.read(1) == b'\n':
+                    nlines += 1
+                f.seek(-2, os.SEEK_CUR)
+        except OSError:
+            f.seek(0)
+
+        lines = []
+        for l in range(nlines+1):
+            lines.append(f.readline().decode())
+
+    for line in reversed(lines[1:]):
+        if "Aborted" in line:
+            # TODO split out crashes by Parthenon error?
+            return JobReturn.CRASH
+        elif "Segmentation fault" in line:
+            # TODO search segfault stuff in last ~50
+            return JobReturn.SEGFAULT
+        elif "DUE TO TIME LIMIT" in line:
+            # TODO search DUE TO TIME LIMIT in last ~10
+            return JobReturn.TIMELIMIT
+        elif "zone-cycles/wallsecond" in line:
+            return JobReturn.SUCCESS
+        elif "DUE to SIGNAL Terminated" in line:
+            return JobReturn.KILLED
+
+    # If these phrases aren't in last X lines, script is probably (?) still running
+    return JobReturn.RUNNING
+
+@click.command()
+@click.argument('op', nargs=1)
+@click.argument('paths', nargs=-1, type=click.Path(exists=True))
+@click.version_option(package_name='pyharm')
+def queue(op, paths, **kwargs):
+    """This is a utility for interacting with batch queues and KHARMA -- currently slurm-only.
+    It can check up on run progress and flag stalled runs, problematic runs, and so on
+    """
+
+    # TODO
+    # last file written timestamp
+    # is 'final' written after the last numbered restart?  Is it readable? Is it farther in sim time?
+
+    if op == "status":
+        for pathname in paths:
+            path = os.path.realpath(pathname)
+            print(path)
+            loglist = glob.glob(os.path.join(path, "*.out"))
+            if len(loglist) == 0:
+                loglist = glob.glob(os.path.join(path, "*.txt"))
+                if len(loglist) == 0:
+                    print("No logs present!")
+                    continue
+
+            for logfile in loglist:
+                status = check_log(logfile)
+                print(logfile.split("/")[-1]+":", end="")
+                if status == JobReturn.RUNNING:
+                    print("Running")
+                else:
+                    print("Returned", status.name)
+
+    # op == prep: ensure final is last-written & last in sim, link or move things otherwise
+
+    # op == stack: submit a job from a template
+    # default to naming it according to current folder
+    # depend on any job running submitted from current dir
+
+
+
+
+if __name__ == "__main__":
+    queue()
