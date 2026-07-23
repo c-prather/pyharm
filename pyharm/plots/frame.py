@@ -161,7 +161,7 @@ def frame(fname, kwargs):
         if 'progressbar' in kwargs and not kwargs['progressbar']:
             print("Plotting",fname.split("/")[-1], file=sys.stderr)
         make_frame(fname, kwargs)
-    except KeyError as e:
+    except Exception as e:
         print(f"Error making frame {fname}: {e}\nSkipping file!", file=sys.stderr)
 
 def make_frame(fname, kwargs):
@@ -180,7 +180,9 @@ def make_frame(fname, kwargs):
     movie_types = []
     ghost_zones = False
     for movie_type in kwargs['movie_types'].split(","):
-        movie_name = movie_type+("_"+kwargs['tag'] if kwargs['tag'] != "" else "")
+        # TODO(CEP) this is repeated in pyharm-movie, de-duplicate
+        sanitized_movie_type = movie_type.replace("[","").replace("]","")
+        movie_name = sanitized_movie_type+("_"+kwargs['tag'] if kwargs['tag'] != "" else "")
         frame_dir = os.path.join(kwargs['out_path'], "frames_"+movie_name)
         if 'numeric_fnames' in kwargs and kwargs['numeric_fnames']:
             frame_id = fname.split('.')[-2]
