@@ -312,11 +312,10 @@ def _write_value(outf, value, name):
     else:
         load = value
 
-    # If key exists just overwrite it
-    if name not in outf:
-        outf[name] = load
-    else:
-        outf[name][()] = load
+    # If key exists, nuke & replace it
+    if name in outf:
+        del outf[name]
+    outf[name] = load
 
 def _write_param_grp(params, key_list, name, parent):
     if not name in parent:

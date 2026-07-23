@@ -167,13 +167,15 @@ class AnaResults(object):
     diags_ana = {'mdot': lambda diag: diag['Mdot_5'],
                 }
 
-    def __init__(self, fname, tag=None):
+    def __init__(self, fname, tag=None, avg_is_smooth=False, avg_ends=None):
         if tag is not None:
             self.tag = tag
         else:
             # If there's no explicit tag, use our folder's name
             self.tag = os.path.basename(os.path.dirname(os.path.realpath(fname)))
         self.cache = {}
+        self.avg_is_smooth = avg_is_smooth
+        self.avg_ends = avg_ends
         if isinstance(fname, str):
             # When reading HDF5 files, just open the file
             # When reading diagnostic output, read the whole thing
@@ -185,8 +187,8 @@ class AnaResults(object):
                 self.diag_fns = {**self.diag_fn_common, **self.diags_ana}
                 self.params = read_hdr(self.file['/header'])
                 self.grid = Grid(self.params)
-                if 'avg/start' in self.file: 
-                    self.avg_ends = (self.file['avg/start'][()], self.file['avg/end'][()])
+                if (self.avg_ends is None) and ('avg/start' in self.file):
+                        self.avg_ends = (self.file['avg/start'][()], self.file['avg/end'][()])
             elif ".hst" in fname:
                 # Read diagnostic output.  Much more limited functionality here,
                 # mostly for applying diag_fns
@@ -400,8 +402,16 @@ class AnaResults(object):
                 window = 101
             ret_v = smoothed(self.get_dvar(ivar, '_'.join(dvarl[1:])), window_sz=window)
         elif dvar[:4] == "avg_":
-            dvals = self.get_dvar(ivar, dvar[4:])
-            ret_v = np.mean(dvals[dvals.shape[0]//2:]) * np.ones_like(dvals)
+            if self.avg_is_smooth:
+                return self["smooth_"+dvar[4:]]
+            elif self.avg_ends is not None and "t" in ivar:
+                #print(f"Using averaging range {self.avg_ends} for {ivar},{dvar}")
+                dvals = self.get_dvar(ivar, dvar[4:])
+                time_slice = self.get_time_slice(self.avg_ends[0], self.avg_ends[1])
+                ret_v = np.mean(dvals[time_slice]) * np.ones_like(dvals)
+            else:
+                dvals = self.get_dvar(ivar, dvar[4:])
+                ret_v = np.mean(dvals[dvals.shape[0]//2:]) * np.ones_like(dvals)
         elif dvar[:7] == "avgall_":
             dvals = self.get_dvar(ivar, dvar[7:])
             ret_v = np.mean(dvals) * np.ones_like(dvals)

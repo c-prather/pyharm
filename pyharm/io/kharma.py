@@ -407,8 +407,12 @@ def read_log(fname):
         line = inf.readline()
         # First comment line that isn't generic should be the header
         # otherwise it's probably not in the parthenon history format
-        while ('#' not in line) or ('History' in line):
+        # If there's not a header in 10 lines, don't go wasting time searching --
+        # user will need to fix it.
+        nread = 0
+        while (('#' not in line) or ('History' in line)) and nread < 10:
             line = inf.readline()
+            nread += 1
         header = [e.split('=')[1].rstrip() for e in line.split('[')[1:]]
 
     tab = pandas.read_table(fname, sep=r"\s+", comment='#', names=header)

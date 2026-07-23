@@ -99,6 +99,9 @@ def queue(op, paths, **kwargs):
     # last file written timestamp
     # is 'final' written after the last numbered restart?  Is it readable? Is it farther in sim time?
 
+    # run current time (last time=)
+    # run average timestep
+
     if op == "status":
         for pathname in paths:
             path = os.path.realpath(pathname)

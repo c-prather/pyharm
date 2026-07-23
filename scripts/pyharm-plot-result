@@ -84,6 +84,7 @@ class ExtensibleCmd(click.Command):
 # Time bounds
 @click.option('--avg-min', type=float, default=None, help="Time-average minimum. Negative value counts backward from end of run")
 @click.option('--avg-max', type=float, default=None, help="Time-average maximum")
+@click.option('--show-avg/--hide-avg', default=False, help="Whether to show and annotate averaged values")
 @click.option('--by-window', is_flag=True, help="Plot a point or line for each window of a series")
 @click.option('--per', is_flag=True, help="Normalize by instantaneous accretion rate")
 # Output
@@ -104,22 +105,32 @@ def plot_results(plot_type, files, **kwargs):
         kwargs['varlist'] = kwargs['varlist'].split(",")
 
     # Make any int/real or None into their actual types
-
-
-    # Always load results
-    if kwargs['file_tags'] is not None:
-        tags = kwargs['file_tags'].split(",")
-        results = [pyharm.load_result(f, tag=t) for f, t in zip(files, tags)]
-    else:
-        # Will be auto-tagged as folder names
-        results = [pyharm.load_result(f) for f in files]
-
     if kwargs['avg_min'] is not None:
         if kwargs['avg_max'] is not None:
             kwargs['arange'] = (kwargs['avg_min'], kwargs['avg_max'])
         else:
             kwargs['arange'] = kwargs['avg_min']
+    else:
+        kwargs['arange'] = None
+    #print(f"Running with arange {kwargs['arange']}")
 
+    # Always load results
+    if kwargs['file_tags'] is not None:
+        tags = kwargs['file_tags'].split(",")
+        results = []
+        for f, t in zip(files, tags):
+            try:
+                results.append(pyharm.load_result(f, tag=t, avg_ends=kwargs['arange']))
+            except:
+                print(f"ERROR reading result file {f}, omitting!")
+    else:
+        # Will be auto-tagged as folder names
+        results = []
+        for f in files:
+            try:
+                results.append(pyharm.load_result(f, avg_ends=kwargs['arange']))
+            except:
+                print(f"ERROR reading result file {f}, omitting!")
 
     ## CALL FUNCTION
     # Hack to call a function in result_figures by name

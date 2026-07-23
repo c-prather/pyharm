@@ -281,7 +281,7 @@ def disk_momentum(results, kwargs):
     kwargs['varlist'] = "u_3"
     return radial_averages(results, kwargs)
 
-def _plot_eh_fluxes(ax, result, per=False, arange=None, vars=('mdot', 'phi_b', 'ldot', 'eff')):
+def _plot_eh_fluxes(ax, result, per=False, arange=None, print_arange=True, vars=('mdot', 'phi_b', 'ldot', 'eff')):
     # TODO somehow make this less janky
     #result.diag_fns['mdot'] = lambda diag: diag['Mdot']
     #result.diag_fns['eff'] = lambda diag: diag['eff_jet50']
@@ -291,7 +291,7 @@ def _plot_eh_fluxes(ax, result, per=False, arange=None, vars=('mdot', 'phi_b', '
         if 'phi_b' in var:
             data *= np.sqrt(4*np.pi)
         pt = ax[a].plot(result['t'], data, label=result.tag)
-        if arange is not None:
+        if arange is not None and print_arange:
             # Get the times to average
             avg_slice = _get_t_slice(result, arange)
             times = (round(result['t'][avg_slice][0]/1000)*1000,
@@ -328,7 +328,7 @@ def eh_fluxes(results, kwargs):
     ax = fig.get_axes()
     for result in results:
         arange = kwargs['arange'] if 'arange' in kwargs else None
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange)
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'])
 
     ax[0].legend()
     if kwargs['ymax_eff'] is not None:
@@ -344,7 +344,8 @@ def eh_fluxes_raw(results, kwargs):
     ax = fig.get_axes()
     for result in results:
         arange = kwargs['arange'] if 'arange' in kwargs else None
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, vars=('mdot', 'Phi_b', 'Ldot', 'Edot'))
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange,
+                        print_arange=kwargs['show_avg'], vars=('mdot', 'Phi_b', 'Ldot', 'Edot'))
 
     ax[0].legend()
     if kwargs['ymax_eff'] is not None:
@@ -359,7 +360,7 @@ def jet_efficiency(results, kwargs):
     ax = fig.get_axes()
     for result in results:
         arange = kwargs['arange'] if 'arange' in kwargs else None
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, vars=('eff',))
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'], vars=('eff',))
 
     ax[0].legend()
     if kwargs['ymax_eff'] is not None:

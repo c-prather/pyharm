@@ -216,13 +216,14 @@ def analysis(ana_types, paths, **kwargs):
             for diag_name in diag_names:
                 if len(glob.glob(os.path.join(run_path, diag_name))) > 0:
                     fname = glob.glob(os.path.join(run_path, diag_name))[0]
-                    if do_out(): print("Trying to load diagnostics from {}".format(fname), file=sys.stderr)
+                    print("Trying to load diagnostics from {}".format(fname), file=sys.stderr)
                     try:
                         # This works for either reduction results (.h5) or KHARMA's history file (.hst)
                         diag = pyharm.io.read_log(fname)
                         if not 'diag' in outfile:
                             outfile.create_group('diag')
                         hdr.dict_to_hdf5(diag, outfile['diag'])
+                        print("Loaded!", file=sys.stderr)
                         break
                     except (IOError, pandas.errors.ParserError) as e:
                         print(e, file=sys.stderr)
