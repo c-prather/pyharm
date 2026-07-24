@@ -145,6 +145,8 @@ def plot_xz(ax, dump, var, vmin=None, vmax=None, window=(-40, 40, -40, 40),
         if vmin is not None and vmin < 0:
             vmin = 10**vmin
             vmax = 10**vmax
+        # If you saw a zero no you didn't.  Makes movies of compressed output bearable
+        var[var == 0.] = np.min(var[var != 0.])
         mesh = pcolormesh_log(ax, x, z, var, cmap=cmap, vmin=vmin, vmax=vmax,
                               shading=shading, cbar=cbar) # Use this cbar, it's customized
         cbar = False # We don't need another later on
@@ -257,6 +259,8 @@ def plot_xy(ax, dump, var, vmin=None, vmax=None, window=None,
         if vmin is not None and vmin < 0:
             vmin = 10**vmin
             vmax = 10**vmax
+        # If you saw a zero no you didn't.  Makes movies of compressed output bearable
+        var[var == 0.] = np.min(var[var != 0.])
         mesh = pcolormesh_log(ax, x, y, var, cmap=cmap, vmin=vmin, vmax=vmax,
                               shading=shading, cbar=cbar) # Use this cbar, it's customized
         cbar = False # We don't need another later on
@@ -352,6 +356,9 @@ def plot_thphi(ax, dump, var, at_r=None, at_i=None, cmap='jet', vmin=None, vmax=
         y = wrap(y)
         var = wrap(var)
 
+    # TODO(CEP) reintroduce 'log' to these correctly...
+    # Remember to cap positive log plots for compressed output:
+    # var[var == 0.] = np.min(var[var != 0.])
     mesh = ax.pcolormesh(x, y, var, cmap=cmap, vmin=vmin, vmax=vmax,
                          shading=shading)
 

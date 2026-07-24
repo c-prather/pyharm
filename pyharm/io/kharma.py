@@ -390,6 +390,10 @@ class KHARMAFile(DumpFile):
         fil.fid.close()
         del fil
 
+        # Ensure positivity -- compressed files can reconstruct to values <0, which throws off plotting
+        if var == "rho" or var == "u":
+            out = np.maximum(out, 0.)
+
         # ALWAYS keep 3 indices.  Better to keep than to squeeze and accidentally broadcast
         if skip_cache:
             return out

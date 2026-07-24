@@ -72,7 +72,7 @@ class HAMRFile(DumpFile):
     def read_params(self, **kwargs):
         params = {}
 
-        # Per-write_dump single variables
+        # Per-dump single variables
         # dt? n_nstep? n _dump?
         # What about dscale?
         for hdr_key, par_key in [('t','t'), ('gam', 'gam'), ('dscale', 'dscale'),
@@ -96,7 +96,7 @@ class HAMRFile(DumpFile):
         return parameters.fix(params)
 
     def read_var(self, var, **kwargs):
-        """Read the header and primitives from a write_dump.
+        """Read the header and primitives from a dump.
         No analysis or extra processing is performed
         @return P, params
         """

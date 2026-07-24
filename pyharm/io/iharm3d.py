@@ -41,6 +41,13 @@ from .interface import DumpFile
 # but don't balloon the line count
 from .iharm3d_header import read_hdr, write_hdr, _write_value
 
+try:
+    import hdf5plugin
+except:
+    # TODO debug parameter for pyharm already
+    #print("No hdf5 plugins; compression will fail!", file=sys.stderr)
+    pass
+
 __doc__ = \
 """Functions for reading and writing iharm3d/Illinois HDF format files,
 as well as iharm3d's log files.
@@ -131,7 +138,13 @@ class Iharm3DFile(DumpFile):
             i = self.index_of(var)
             if i is not None:
                 # This is one of the main vars in the 'prims' array
-                self.cache[var] = self._prep_array(fil['/prims'][fil_slc + (i,)], **kwargs)
+                # Ensure positivity on rho,u -- compression with Zfp can break it and we don't care
+                # TODO maybe an option for this?
+                #print(var)
+                if var.lower() == "rho" or var.lower() == "u":
+                    self.cache[var] = np.maximum(self._prep_array(fil['/prims'][fil_slc + (i,)], **kwargs), 0.)
+                else:
+                    self.cache[var] = self._prep_array(fil['/prims'][fil_slc + (i,)], **kwargs)
                 return self.cache[var]
             else:
                 # This is something else we should grab by name
@@ -193,7 +206,7 @@ def read_log(logfname):
 
     return log
 
-def write_dump(dump, fname, astype=np.float32, ghost_zones=False):
+def write_dump(dump, fname, astype=np.float32, ghost_zones=False, precision=-1):
     """Write the data in FluidState 'dump' to file 'fname' in iharm3d/Illinois HDF format.
     """
     with h5py.File(fname, "w") as outf:
@@ -225,14 +238,25 @@ def write_dump(dump, fname, astype=np.float32, ghost_zones=False):
         if 'n_step' in dump.params:
             outf['n_step'] = dump['n_step']
 
-        # This will fetch and write all primitive variables
+        # Write, optionally with compression enabled (requires hdf5plugins conda/python package)
         G = dump.grid
-        if G.NG > 0 and not ghost_zones:
-            p = dump['prims'].astype(astype)
-            outf["prims"] = np.einsum("p...->...p", p[G.slices.allv + G.slices.bulk])
+        if precision > 0:
+            if G.NG > 0 and not ghost_zones:
+                # This will fetch and write all primitive variables
+                p = dump['prims'].astype(astype)
+                outf.create_dataset("prims", data=np.einsum("p...->...p", p[G.slices.allv + G.slices.bulk]),
+                                    compression=hdf5plugin.Zfp(precision=precision))
+            else:
+                p = dump['prims'].astype(astype)
+                outf.create_dataset("prims", data=np.einsum("p...->...p", p),
+                                    compression=hdf5plugin.Zfp(precision=precision))
         else:
-            p = dump['prims'].astype(astype)
-            outf["prims"] = np.einsum("p...->...p", p)
+            if G.NG > 0 and not ghost_zones:
+                p = dump['prims'].astype(astype)
+                outf["prims"] = np.einsum("p...->...p", p[G.slices.allv + G.slices.bulk])
+            else:
+                p = dump['prims'].astype(astype)
+                outf["prims"] = np.einsum("p...->...p", p)
 
         # Extra in-situ calculations or custom debugging additions
         if "extras" not in outf:
