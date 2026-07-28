@@ -105,8 +105,9 @@ def out_path(run_path, kwargs):
 # Common options
 @click.option('-s', '--start', default=None, help="Only consider dumps after this time, in M")
 @click.option('-e', '--end', default=None, help="Only consider dumps after this time, in M")
-@click.option('-as', '--average-start', default=None, help="Beginning time for time-averages")
-@click.option('-ae', '--average-end', default=None, help="End time for time-averages")
+@click.option('--tavgs/--no-tavgs', default=True, help="Whether to compute time-averages -- default true")
+@click.option('-as', '--average-start', default=None, help="Beginning time for time-averages. Default halfway through the run")
+@click.option('-ae', '--average-end', default=None, help="End time for time-averages. Default end of the run")
 @click.option('-a', '--append', is_flag=True, help="Append to existing results file, rather than starting fresh")
 @click.option('-f', '--filename', default="eht_out.h5", help="Name of each result file")
 @click.option('-o', '--output_dir', default=".", help="Base directory for outputs. Any folder structure of models will be preserved.")
@@ -181,6 +182,9 @@ def analysis(ana_types, paths, **kwargs):
             kwargs['t_avg_end'] = float(kwargs['average_end'])
         else:
             kwargs['t_avg_end'] = tend
+
+        kwargs[] = kwargs['tavgs']
+
 
         # Set filename from analysis if doing just one
         if (kwargs['filename'] == 'eht_out.h5') and not (',' in ana_types) and not kwargs['add_hst']:
