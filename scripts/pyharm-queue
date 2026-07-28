@@ -97,10 +97,15 @@ def queue(op, paths, **kwargs):
 
     # TODO
     # last file written timestamp
-    # is 'final' written after the last numbered restart?  Is it readable? Is it farther in sim time?
+    # is 'final' written more recently than the last numbered restart?
+    #    Is it readable?
+    #    Partially written w/some zeros?
+    #    Is it farther in sim time?
 
     # run current time (last time=)
-    # run average timestep
+    # run average timestep, hours to completion @ this timestep
+
+    # Detect partial restart files
 
     if op == "status":
         for pathname in paths:

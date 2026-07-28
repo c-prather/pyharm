@@ -72,19 +72,20 @@ def basic(dump, out, **kwargs):
 
         # FIELD STRENGTH
         # The HARM B_unit is sqrt(4pi)*c*sqrt(rho), and this is standard for EHT comparisons
+        # Event horizon ONLY, 5M makes no sense
         out['t/Phi_b'] = 0.5 * shell_sum(dump, 'abs_B1', at_i=iEH)
 
         # FLUXES
         # Radial profiles of Mdot and Edot, and their particular values
         # EHT code-comparison normalization has all these values positive
         for var, flux in [['Edot', 'FE'], ['Mdot', 'FM'], ['Ldot', 'FL']]:
-            out['t/'+var] = shell_sum(dump, flux, at_i=iEH)
+            out['t/'+var+'_EH'] = shell_sum(dump, flux, at_i=iEH)
             # Also add the fluxes at r=5, which avoids floor trash and inaccuracies
             out['t/'+var+'_5'] = shell_sum(dump, flux, at_r=5.)
 
         # Mdot and Edot are defined inward/positive at EH
-        out['t/Mdot'] *= -1
-        out['t/Edot'] *= -1
+        out['t/Mdot_EH'] *= -1
+        out['t/Edot_EH'] *= -1
         out['t/Mdot_5'] *= -1
         out['t/Edot_5'] *= -1
 

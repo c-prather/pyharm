@@ -235,6 +235,8 @@ def analysis(ana_types, paths, **kwargs):
             # And record pretty much the only relevant command-line parameters
             outfile['avg/start'] = kwargs['t_avg_start']
             outfile['avg/end'] = kwargs['t_avg_end']
+            # And our energy convention
+            outfile['extras/edot_sign_vs_eht'] = -1
 
         if kwargs['debug']:
             # Import profiling only if used, start it

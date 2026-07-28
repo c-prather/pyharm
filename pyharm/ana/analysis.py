@@ -87,7 +87,10 @@ def analyze(args):
     
     # Actually do the analyses, adding to the 'out' dictionary
     for type in ana_types:
-        analyses.__dict__[type](dump, out, **kwargs)
+        if type not in analyses.__dict__:
+            print(f"Failed to run unknown analysis '{type}'")
+        else:
+            analyses.__dict__[type](dump, out, **kwargs)
 
     del dump
 
