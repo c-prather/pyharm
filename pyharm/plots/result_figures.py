@@ -87,26 +87,21 @@ def _model_pretty(folder):
     else:
         return folder.replace("")
 
-def _radial_profile(ax, result, var, arange=-1000, window=(1,500), disk=True, plot_std=False, plot_eh=False, selector=None, tag="",
-                   print_time=False, model_shared_portion=0, plotrc={}, **kwargs):
-
-    if selector is not None and not selector(result.tag):
-        return
-
-    model = " ".join(result.tag.split(" ")[model_shared_portion:])
-    title = " ".join(result.tag.split(" ")[:model_shared_portion])
+def _radial_profile(ax, result, var, arange=-1000, window=(1,500), disk=True, plot_std=False, plot_eh=False,
+                   print_time=False, plotrc={}, **kwargs):
 
     # Get the times to average
-    avg_slice = _get_t_slice(result, arange)
-    times = (round(result['t'][avg_slice][0]/1000)*1000,
-             round(result['t'][avg_slice][-1]/1000)*1000)
+    avg_slice = _get_t_slice(result, arange)[1]
+    #print(result['t'][avg_slice].shape)
+    times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
+             round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
     # Get just the relevant radial slice so y-limits get set properly
     r_slice = _get_r_slice(result, (window[0]-1, window[1]+20))
 
     tyvals = result['rt/{}'.format(var)][avg_slice, r_slice]
 
     yvals = np.mean(tyvals, axis=0)
-    p = ax.plot(result['r'][r_slice], yvals, label=model+("",r" {}-{} $t_g$".format(*times))[print_time], **plotrc)
+    p = ax.plot(result['r'][r_slice], yvals, label=result.tag, **plotrc)
     if plot_std:
         yerrs = np.std(tyvals, axis=0)
         ax.fill_between(result['r'][r_slice], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
@@ -241,7 +236,7 @@ def res_study_avg_std(results, kwargs, plotrc={}):
     _point_per_run(ax, results, kwargs['varlist'][0], 'avg_std', 'res', plotrc=plotrc, **kwargs)
     return fig
 
-def default_radial_averages(results, kwargs):
+def radial_averages(results, kwargs):
     if kwargs['varlist'] is None:
         vars = ('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^3', 'sigma_post', 'inv_beta_post')
     else:
@@ -257,6 +252,24 @@ def default_radial_averages(results, kwargs):
             window = _radial_profile(ax[a], result, var, **kwargs)
 
     return fig
+
+def _plot_radial_fluxes(results, kwargs, vars):
+    # Radial profiles of variables
+    nx = min(len(vars), 4)
+    ny = (len(vars)-1)//4+1
+    fig, _ = plt.subplots(ny, nx, figsize=(4*nx,4*ny))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(vars):
+            window = _radial_profile(ax[a], result, var, **kwargs)
+
+    return fig
+
+def radial_fluxes(results, kwargs):
+    return _plot_radial_fluxes(results, kwargs, vars=('FE_all', 'FM_all', 'FL_all'))
+
+def disk_radial_fluxes(results, kwargs):
+    return _plot_radial_fluxes(results, kwargs, vars=('FE_disk', 'FM_disk', 'FL_disk'))
 
 def jet_fluxes(results, kwargs):
     if kwargs['varlist'] is None:
@@ -281,126 +294,118 @@ def disk_momentum(results, kwargs):
     kwargs['varlist'] = "u_3"
     return radial_averages(results, kwargs)
 
-def _plot_eh_fluxes(ax, result, per=False, arange=None, print_arange=True, vars=('mdot', 'phi_b', 'ldot', 'eff')):
+def _plot_time_evolution(ax, result, var, per=False, arange=None, print_arange=True, ymax=None):
     # TODO somehow make this less janky
     #result.diag_fns['mdot'] = lambda diag: diag['Mdot']
     #result.diag_fns['eff'] = lambda diag: diag['eff_jet50']
 
-    for a,var in enumerate(vars):
-        data = result['t/{}'.format(var)]
-        if 'phi_b' in var:
-            data *= np.sqrt(4*np.pi)
-        pt = ax[a].plot(result['t'], data, label=result.tag)
-        if arange is not None and print_arange:
-            # Get the times to average
-            avg_slice = _get_t_slice(result, arange)
-            times = (round(result['t'][avg_slice][0]/1000)*1000,
-                    round(result['t'][avg_slice][-1]/1000)*1000)
-            avg = np.mean(data[avg_slice])
-            ax[a].hlines(avg, times[0], times[1], colors=pt[0].get_color(), linestyles='dashed')
-            ax[a].text(times[1], avg, f"{avg:.2f}")
-            
-        ax[a].set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
-        ax[a].grid(True)
+    data = result[f't/{var}']
 
-def _plot_eh_phi_versions(ax, result):
-    for a,var in enumerate(('phi_b', 'phi_b_upper', 'phi_b_lower')):
-        ax[a].plot(result['t'], result['t/{}'.format(var)], label=result.tag)
-        ax[a].set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
-        ax[a].grid(True)
-    # Additionally plot
-    ax[0].plot(result['t'], np.abs(result['t/phi_b_upper'])+np.abs(result['t/phi_b_lower']), label=result.tag+" hemispheres")
+    # TODO special-case somewhere else
+    if 'phi_b' in var:
+        data *= np.sqrt(4*np.pi)
 
-def eh_phi_versions(results, kwargs):
+    print(f"Plotting {var}: {len(data)} elements")
+    if result.prefer_hst:
+        time = result['diag/time']
+    else:
+        time = result['t']
+    pt = ax.plot(time, data, label=result.tag)
+
+    if arange is not None and print_arange:
+        # Get the times to average
+        avg_slice = _get_t_slice(result, arange)
+        times = (round(time[avg_slice][0]/1000)*1000,
+                round(time[avg_slice][-1]/1000)*1000)
+        avg = np.mean(data[avg_slice])
+        ax.hlines(avg, times[0], times[1], colors=pt[0].get_color(), linestyles='dashed')
+        ax.text(times[1], avg, f"{avg:.2f}")
+
+    if ymax is not None:
+        ax.set_ylim(0, ymax)
+
+    ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
+    ax.grid(True)
+
+def _plot_time_evolutions(results, kwargs, vars):
+    # TODO(CEP) handle "per" here, via vars arguments
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10/4*len(vars)
+    fig, _ = plt.subplots(len(vars), 1, figsize=(xsize, ysize))
+    ax = fig.get_axes()
     for result in results:
-        # Event horizon fluxes
-        fig, _ = plt.subplots(3,1, figsize=(7,7))
-        axes = fig.get_axes()
-        _plot_eh_phi_versions(axes, result)
-        plt.subplots_adjust(wspace=0.4)
+        arange = kwargs['arange'] if 'arange' in kwargs else None
+        for a,var in enumerate(vars):
+            _plot_time_evolution(ax[a], result, var, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'], ymax=kwargs['ymax_eff'])
+
+    ax[0].legend()
+    plt.subplots_adjust(wspace=0.4)
     return fig
 
 def eh_fluxes(results, kwargs):
-    # TODO(CEP) handle "per" here, via vars arguments
-    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
-    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10
-    fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
-    ax = fig.get_axes()
-    for result in results:
-        arange = kwargs['arange'] if 'arange' in kwargs else None
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'])
+    return _plot_time_evolutions(results, kwargs, vars=('mdot', 'phi_b', 'spinup', 'eff'))
 
-    ax[0].legend()
-    if kwargs['ymax_eff'] is not None:
-        ax[3].set_ylim(0, kwargs['ymax_eff'])
-    plt.subplots_adjust(wspace=0.4)
-    return fig
+def eh_fluxes_old(results, kwargs):
+    return _plot_time_evolutions(results, kwargs, vars=('mdot', 'phi_b', 'ldot', 'eff'))
 
 def eh_fluxes_raw(results, kwargs):
-    # TODO(CEP) handle "per" here, via vars arguments
-    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
-    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10
-    fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
-    ax = fig.get_axes()
-    for result in results:
-        arange = kwargs['arange'] if 'arange' in kwargs else None
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange,
-                        print_arange=kwargs['show_avg'], vars=('mdot', 'Phi_b', 'Ldot', 'Edot'))
+    return _plot_time_evolutions(results, kwargs, vars=('Mdot', 'Phi_b', 'Ldot', 'Edot'))
 
-    ax[0].legend()
-    if kwargs['ymax_eff'] is not None:
-        ax[3].set_ylim(0, kwargs['ymax_eff'])
-    plt.subplots_adjust(wspace=0.4)
-    return fig
+def eff_versions(results, kwargs):
+    return _plot_time_evolutions(results, kwargs, vars=('eff_55', 'eff_5EH', 'eff_EHEH', 'eff_jet50'))
+
+def eff_versions_per(results, kwargs):
+    return _plot_time_evolutions(results, kwargs, vars=('eff_55_per', 'eff_5EH_per', 'eff_EHEH_per', 'eff_jet50_per'))
+
+def spinup(results, kwargs):
+    return _plot_time_evolutions(results, kwargs, vars=('spinup',))
 
 def jet_efficiency(results, kwargs):
-    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
-    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 3
-    fig, _ = plt.subplots(1,1, figsize=(xsize, ysize))
-    ax = fig.get_axes()
-    for result in results:
-        arange = kwargs['arange'] if 'arange' in kwargs else None
-        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'], vars=('eff',))
-
-    ax[0].legend()
-    if kwargs['ymax_eff'] is not None:
-        ax[3].set_ylim(0, kwargs['ymax_eff'])
-    plt.subplots_adjust(wspace=0.4)
-    return fig
+    return _plot_time_evolutions(results, kwargs, vars=('spinup',))
 
 def mdot_versions(results, kwargs):
-    fig, _ = plt.subplots(3,1, figsize=(10,10))
+    return _plot_time_evolutions(results, kwargs, vars=('Mdot', 'Mdot_5'))
+
+def eh_phi_versions(results, kwargs):
+    return _plot_time_evolutions(results, kwargs, vars=('phi_b', '2x_phi_b_lower', '2x_phi_b_upper', 'phi_b_hemispheres'))
+
+def _hth_profile(ax, result, var, arange=-1000, print_time=False, plot_std=False, ylim=None):
+
+    # Get the times to average
+    avg_slice = _get_t_slice(result, arange)
+    #print(result['t'][avg_slice].shape)
+    times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
+             round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
+
+    tyvals = result['htht/{}'.format(var)][avg_slice, :]
+
+    yvals = np.mean(tyvals, axis=0)
+    p = ax.plot(result['hth'], yvals, label=result.tag)
+    if plot_std:
+        yerrs = np.std(tyvals, axis=0)
+        ax.fill_between(result['hth'], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
+
+    ax.set_xlabel(r"$\theta$")
+    ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.legend()
+    ax.grid(True)
+
+def _plot_hth_profiles(results, kwargs, vars, ylim=None):
+    # Radial profiles of variables
+    nx = min(len(vars), 4)
+    ny = (len(vars) - 1) // 4 + 1
+    fig, _ = plt.subplots(ny, nx, figsize=(4*nx+1,4*ny))
     ax = fig.get_axes()
     for result in results:
-        for a,var in enumerate(('mdot', 'Mdot', 'Mdot_5')):
-            # Mdot
-            ax[0].plot(result['t'], result['t/{}'.format(var)], label=f"{result.tag} {var}")
-            ax[0].set_ylabel(pyharm.pretty('mdot'), rotation=0, ha='right')
-            ax[0].grid(True)
-            # Phi normalized on that mdot
-            ax[1].plot(result['t'], result['Phi_b'] / np.sqrt(result[f'smoothed_{var}']))
-            yl = r"$\frac{\Phi_{BH}}{\sqrt{\langle " + pyharm.pretty('mdot', segment=True) + r"\rangle}}$"
-            ax[1].set_ylabel(yl, rotation=0, ha='right')
-            ax[1].grid(True)
-        # Versions of Edot
-        for a,var in enumerate(('Edot', 'Edot_5')):
-            ax[2].plot(result['t'], result[var] / result['smoothed_mdot'], label=f"{result.tag} {var}")
-        ax[2].plot(result['t'], result['edot'], label=f"{result.tag} edot")
-        fe_i = i_of(dump['r1d'], 40.)
-        ax[2].plot(result['t'], result['FE'][fe_i] / result['smoothed_mdot'], label=f"{result.tag} Edot_40")
-        ax[2].set_ylabel(pyharm.pretty('edot'), rotation=0, ha='right')
-        ax[2].grid(True)
+        for a,var in enumerate(vars):
+            window = _hth_profile(ax[a], result, var, ylim=ylim)
 
-        # Versions of eta
-        for a,var in enumerate(('Edot', 'Edot_5')):
-            ax[3].plot(result['t'], result[var] / result['smoothed_mdot'], label=f"{result.tag} {var}")
-        ax[3].plot(result['t'], result['edot'], label=f"{result.tag} edot")
-        fe_i = i_of(dump['r1d'], 40.)
-        ax[3].plot(result['t'], result['FE'][fe_i] / result['smoothed_mdot'], label=f"{result.tag} Edot_40")
-        ax[3].set_ylabel(pyharm.pretty('edot'), rotation=0, ha='right')
-        ax[3].grid(True)
-
-    ax[0].legend()
-    ax[2].legend()
-    plt.subplots_adjust(wspace=0.4)
     return fig
+
+def bz_profiles(results, kwargs):
+    return _plot_hth_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
+
+def bz_profiles_std(results, kwargs):
+    return _plot_hth_profiles(results, kwargs, ('omega_rel',), plot_std=True, ylim=(0, 1))

@@ -73,6 +73,7 @@ class ExtensibleCmd(click.Command):
 @click.option('--model_prefix', default="", help="String to prepend to all model names (e.g. GRMHD run parameters)")
 @click.option('--tag', default="compare", help="String to add to output plot names")
 @click.option('--file-tags', default=None, help="Comma-separated list of names/tags for result files")
+@click.option('--prefer-hst', is_flag=True, help="Prefer KHARMA's fluxes to post-processing values")
 # Bounds
 @click.option('--xmax', type=float, default=None, help="X-axis maximum")
 @click.option('--xmin', type=float, default=None, help="X-axis minimum")
@@ -120,7 +121,7 @@ def plot_results(plot_type, files, **kwargs):
         results = []
         for f, t in zip(files, tags):
             try:
-                results.append(pyharm.load_result(f, tag=t, avg_ends=kwargs['arange']))
+                results.append(pyharm.load_result(f, tag=t, avg_ends=kwargs['arange'], prefer_hst=kwargs['prefer_hst']))
             except:
                 print(f"ERROR reading result file {f}, omitting!")
     else:
@@ -128,7 +129,7 @@ def plot_results(plot_type, files, **kwargs):
         results = []
         for f in files:
             try:
-                results.append(pyharm.load_result(f, avg_ends=kwargs['arange']))
+                results.append(pyharm.load_result(f, avg_ends=kwargs['arange'], prefer_hst=kwargs['prefer_hst']))
             except:
                 print(f"ERROR reading result file {f}, omitting!")
 
