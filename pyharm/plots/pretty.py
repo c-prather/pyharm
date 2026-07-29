@@ -39,12 +39,15 @@ and returns the LaTeX form of the name, suitable for plot axes/titles.
 
 # TODO: optionally add code or CGS units to any name
 # TODO: better tracking/extensibility
+# TODO: 
 
 pretty_dict = {'rho': r"\rho",
             'dP': r"\Delta P",
             'bsq': r"b^{2}",
             'sigma': r"\sigma",
             'u': r"u",
+            'b': r"b",
+            # turn my informal sub/superscripts into LaTeX
             'u_t': r"u_{t}",
             'u^t': r"u^{t}",
             'u_r': r"u_{r}",
@@ -59,9 +62,11 @@ pretty_dict = {'rho': r"\rho",
             'b^th': r"b^{\theta}",
             'b_phi': r"b_{\phi}",
             'b^phi': r"b^{\phi}",
+            # Other variables
             'FM': r"\mathrm{Number\;Flux}\;FM",
-            'FE':r"\mathrm{Energy\;Flux}\; FE",
-            'FL':r"\mathrm{Angular\;Momentum\;Flux}\;FL",
+            'FE': r"\mathrm{Energy\;Flux}\; FE",
+            'FL': r"\mathrm{Angular\;Momentum\;Flux}\;FL",
+            'P':  r"P",
             'Be_b': r"Be_{\mathrm{B}}",
             'Be_nob': r"Be_{\mathrm{Fluid}}",
             'Pg': r"P_g",
@@ -73,15 +78,17 @@ pretty_dict = {'rho': r"\rho",
             'jcov': r"j_{\mu}",
             'jsq': r"j^{2}",
             'current': r"J^{2}",
+            'Jsq': r"J^{2}",
             'B': r"B",
             'Gamma': r"\Gamma",
             'betagamma': r"\beta \gamma",
+            'T': r"T",
             'Theta': r"\Theta",
-            'Thetap': r"\Theta_{\mathrm{e}}",
-            'Thetae': r"\Theta_{\mathrm{p}}",
-            'JE0': r"JE^{t}",
-            'JE1': r"JE^{r}",
-            'JE2': r"JE^{\theta}",
+            'Thetap': r"\Theta_{\mathrm{p}}",
+            'Thetae': r"\Theta_{\mathrm{e}}",
+            'JE0': r"JE^{0}",
+            'JE1': r"JE^{1}",
+            'JE2': r"JE^{2}",
             'divB': r"\nabla \cdot B",
             'MaxDivB': r"\mathrm{max}\left(\nabla \cdot B \right)",
             # Results of reductions which are canonically named
@@ -101,7 +108,7 @@ pretty_dict = {'rho': r"\rho",
             'eff_per': r"\frac{- \left( \dot{E} - \dot{M} \right)}{\dot{M}}",
             'eff_jet50': r"\frac{P_\mathrm{jet}}{\langle \dot{M} \rangle}",
             'eff_jet50_per': r"\frac{P_\mathrm{jet}}{\dot{M}}",
-            'spinup': r"\frac{\dot{L} - 2 a \dot{E}}{\langle \dot{M} \rangle}",
+            'spinup': r"- \frac{\dot{L} - 2 a \dot{E}}{\langle \dot{M} \rangle}",
             # BZ
             'omega': r"\omega_\mathrm{BZ}",
             'omega_rel': r"\frac{\omega_\mathrm{BZ}}{\Omega_H}",
@@ -124,6 +131,10 @@ def pretty(var, segment=False):
         return pretty(var.replace("_post",""), segment=segment)
     if "_disk" in var:
         return pretty(var.replace("_disk",""), segment=segment) + " (disk-average)"
+    if "_jet" in var:
+        return pretty(var.replace("_jet",""), segment=segment) + " (jet-average)"
+    if "_notdisk" in var:
+        return pretty(var.replace("_notdisk",""), segment=segment) + " (except disk)"
 
     # Break down the name and translate bits we know to Latex;
     # keeps anything we don't understand as-is, no formatting
@@ -142,7 +153,7 @@ def pretty(var, segment=False):
         parts = var.split("_")
         try:
             # If it's a number the \text will choke
-            ret = pretty_dict[parts[0]] + f"_{int(parts[1])}"
+            ret = pretty_dict[parts[0]] + r"_{" + str(int(parts[1])) + r"}"
         except:
             ret = pretty_dict[parts[0]] + r"_\mathrm{" + "_".join(parts[1:]) + r"}"
     

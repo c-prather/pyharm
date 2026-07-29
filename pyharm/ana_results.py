@@ -140,6 +140,8 @@ class AnaResults(object):
                     'Mdot': lambda diag: diag['Mdot_EH'],
                     'Edot': lambda diag: diag['Edot_EH'],
                     'Ldot': lambda diag: diag['Ldot_EH'],
+                    # For prettier names
+                    'u^phi': lambda diag: diag['u^3'],
                     # Standard names for some EH fluxes
                     'phi_b_per': lambda diag: diag['Phi_b'] / np.sqrt(diag['Mdot']),
                     'phi_b': lambda diag: diag['Phi_b'] / np.sqrt(diag['avg_Mdot']),
@@ -403,15 +405,14 @@ class AnaResults(object):
         In implementation, this is the closest analog to FluidState's __getitem__ function -- it's the
         place to add any complex new tags/operations/whatever.
         """
+
+        # TODO option for this diagnostic
         #print("Getting ivar/dvar ", ivar+"/"+dvar)
 
         # Cache based on *both* variables to avoid collisions e.g. t/Mdot vs rt/Mdot or something
         vname = ivar+"/"+dvar
         if vname in self.cache:
             return self.cache[vname]
-
-        # Grab from the file first no matter what it's named
-        #print(self.file[ivar].keys())
 
         # Allow overriding file locations with functions
         if dvar in self.diag_fns:

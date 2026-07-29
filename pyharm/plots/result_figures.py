@@ -87,34 +87,38 @@ def _model_pretty(folder):
     else:
         return folder.replace("")
 
-def _radial_profile(ax, result, var, arange=-1000, window=(1,500), disk=True, plot_std=False, plot_eh=False,
-                   print_time=False, plotrc={}, **kwargs):
+def _radial_profile(ax, result, var, **kwargs):
 
     # Get the times to average
-    avg_slice = _get_t_slice(result, arange)[1]
+    avg_slice = _get_t_slice(result, kwargs['arange'])[1]
     #print(result['t'][avg_slice].shape)
     times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
              round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
     # Get just the relevant radial slice so y-limits get set properly
+    window = (kwargs['xmin'] if kwargs['xmin'] is not None else 1,
+              kwargs['xmax'] if kwargs['xmax'] is not None else 500)
     r_slice = _get_r_slice(result, (window[0]-1, window[1]+20))
 
-    tyvals = result['rt/{}'.format(var)][avg_slice, r_slice]
-
+    tyvals = np.nan_to_num(result['rt/{}'.format(var)][avg_slice, r_slice])
     yvals = np.mean(tyvals, axis=0)
-    p = ax.plot(result['r'][r_slice], yvals, label=result.tag, **plotrc)
-    if plot_std:
+
+    p = ax.plot(result['r'][r_slice], yvals, label=result.tag)
+    if kwargs['plot_std']:
         yerrs = np.std(tyvals, axis=0)
         ax.fill_between(result['r'][r_slice], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
 
-    if plot_eh:
-        ax.axvline(2.0, color='k') # TODO set xlim inside despite default
+    if kwargs['plot_eh']:
+        ax.axvline(diag['r_eh'], color='k')
     else:
         ax.set_xlim(window[0], window[1])
 
+    if kwargs['logy']:
+        ax.set_yscale('log')
+    if kwargs['logx']:
+        ax.set_xscale('log')
+
     ax.set_xlabel(r"Radius [$r_g$]")
-    ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
-    ax.set_title(title)
-    ax.legend()
+    ax.set_ylabel(pyharm.pretty(var)) #, rotation=0, ha='right')
     ax.grid(True)
 
 def _point_per_run(axis, results, var, to_plot, plot_vs, window=None, arange=-1000, selector=None, tag="",
@@ -236,63 +240,87 @@ def res_study_avg_std(results, kwargs, plotrc={}):
     _point_per_run(ax, results, kwargs['varlist'][0], 'avg_std', 'res', plotrc=plotrc, **kwargs)
     return fig
 
-def radial_averages(results, kwargs):
-    if kwargs['varlist'] is None:
-        vars = ('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^3', 'sigma_post', 'inv_beta_post')
-    else:
-        vars = kwargs['varlist']
-
+def _plot_radial_averages(results, kwargs, vars, max_nx=4):
     # Radial profiles of variables
-    nx = min(len(vars), 4)
-    ny = (len(vars)-1)//4+1
-    fig, _ = plt.subplots(ny, nx, figsize=(4*nx,4*ny))
+    nx = min(len(vars), max_nx)
+    ny = (len(vars) - 1) // max_nx + 1
+    fig, _ = plt.subplots(ny, nx, figsize=(4*nx+1,4*ny))
     ax = fig.get_axes()
     for result in results:
         for a,var in enumerate(vars):
             window = _radial_profile(ax[a], result, var, **kwargs)
 
+    ax[0].legend()
+    plt.subplots_adjust(wspace=0.4)
     return fig
 
-def _plot_radial_fluxes(results, kwargs, vars):
-    # Radial profiles of variables
-    nx = min(len(vars), 4)
-    ny = (len(vars)-1)//4+1
-    fig, _ = plt.subplots(ny, nx, figsize=(4*nx,4*ny))
-    ax = fig.get_axes()
-    for result in results:
-        for a,var in enumerate(vars):
-            window = _radial_profile(ax[a], result, var, **kwargs)
+def radial_profiles(results, kwargs):
+    return _plot_radial_averages(results, kwargs, vars=('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^3'))
 
-    return fig
+def disk_radial_profiles(results, kwargs):
+    return _plot_radial_averages(results, kwargs, vars=('rho_disk', 'Pg_disk', 'b_disk', 'bsq_disk', 'Ptot_disk', 'u^phi_disk'))
+
+def jet_radial_profiles(results, kwargs):
+    return _plot_radial_averages(results, kwargs, vars=('rho_jet', 'Pg_jet', 'u^r_jet', 'u^th_jet', 'u^phi_jet', 'b^r_jet', 'b^th_jet', 'b^phi_jet', 'b_jet', 'inv_beta_jet', 'Ptot_jet'))
 
 def radial_fluxes(results, kwargs):
-    return _plot_radial_fluxes(results, kwargs, vars=('FE_all', 'FM_all', 'FL_all'))
+    return _plot_radial_averages(results, kwargs, vars=('FE_all', 'FM_all', 'FL_all'))
 
 def disk_radial_fluxes(results, kwargs):
-    return _plot_radial_fluxes(results, kwargs, vars=('FE_disk', 'FM_disk', 'FL_disk'))
+    return _plot_radial_averages(results, kwargs, vars=('FE_disk', 'FM_disk', 'FL_disk'))
 
-def jet_fluxes(results, kwargs):
-    if kwargs['varlist'] is None:
-        vars = ('Mdot_jet', 'P_jet', 'P_EM_jet')
-    else:
-        vars = kwargs['varlist']
+def jet_radial_fluxes(results, kwargs):
+    return _plot_radial_averages(results, kwargs, vars=('Mdot_jet', 'P_jet', 'Area_jet', 'P_EM_jet', 'P_PAKE_jet', 'P_EN_jet',), max_nx=3)
 
-    fig, _ = plt.subplots(len(vars), 1, figsize=(7, 3*len(vars)))
+def disk_momentum_profile(results, kwargs):
+    return _plot_radial_averages(results, kwargs, vars=('u_phi_disk',))
+
+def disk_velocity_profile(results, kwargs):
+    return _plot_radial_averages(results, kwargs, vars=('u^phi_disk',))
+
+
+def _hth_profile(ax, result, var, arange=-1000, print_time=False, plot_std=False, ylim=None):
+
+    # Get the times to average
+    avg_slice = _get_t_slice(result, arange)
+    #print(result['t'][avg_slice].shape)
+    times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
+             round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
+
+    tyvals = result['htht/{}'.format(var)][avg_slice, :]
+
+    yvals = np.mean(tyvals, axis=0)
+    p = ax.plot(result['hth'], yvals, label=result.tag)
+    if plot_std:
+        yerrs = np.std(tyvals, axis=0)
+        ax.fill_between(result['hth'], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
+
+    ax.set_xlabel(r"$\theta$")
+    ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.legend()
+    ax.grid(True)
+
+def _plot_hth_profiles(results, kwargs, vars, ylim=None):
+    # Radial profiles of variables
+    nx = min(len(vars), 4)
+    ny = (len(vars) - 1) // 4 + 1
+    fig, _ = plt.subplots(ny, nx, figsize=(4*nx+1,4*ny))
     ax = fig.get_axes()
     for result in results:
         for a,var in enumerate(vars):
-            window = _radial_profile(ax[a], result, var, **kwargs)
-            if a < len(vars)-1:
-                ax[a].set_xlabel('')
-                ax[a].set_xticklabels([])
-                ax[a].tick_params(length=0)
-    fig.subplots_adjust(left=0.2, hspace=0.02)
+            window = _hth_profile(ax[a], result, var, ylim=ylim)
 
     return fig
 
-def disk_momentum(results, kwargs):
-    kwargs['varlist'] = "u_3"
-    return radial_averages(results, kwargs)
+def omega_bz(results, kwargs):
+    return _plot_hth_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
+
+def omega_bz_std(results, kwargs):
+    return _plot_hth_profiles(results, kwargs, ('omega_rel',), plot_std=True, ylim=(0, 1))
+
+# TODO all the BZ types comparisons
 
 def _plot_time_evolution(ax, result, var, per=False, arange=None, print_arange=True, ymax=None):
     # TODO somehow make this less janky
@@ -310,6 +338,7 @@ def _plot_time_evolution(ax, result, var, per=False, arange=None, print_arange=T
         time = result['diag/time']
     else:
         time = result['t']
+
     pt = ax.plot(time, data, label=result.tag)
 
     if arange is not None and print_arange:
@@ -368,44 +397,3 @@ def mdot_versions(results, kwargs):
 
 def eh_phi_versions(results, kwargs):
     return _plot_time_evolutions(results, kwargs, vars=('phi_b', '2x_phi_b_lower', '2x_phi_b_upper', 'phi_b_hemispheres'))
-
-def _hth_profile(ax, result, var, arange=-1000, print_time=False, plot_std=False, ylim=None):
-
-    # Get the times to average
-    avg_slice = _get_t_slice(result, arange)
-    #print(result['t'][avg_slice].shape)
-    times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
-             round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
-
-    tyvals = result['htht/{}'.format(var)][avg_slice, :]
-
-    yvals = np.mean(tyvals, axis=0)
-    p = ax.plot(result['hth'], yvals, label=result.tag)
-    if plot_std:
-        yerrs = np.std(tyvals, axis=0)
-        ax.fill_between(result['hth'], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
-
-    ax.set_xlabel(r"$\theta$")
-    ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
-    if ylim is not None:
-        ax.set_ylim(ylim)
-    ax.legend()
-    ax.grid(True)
-
-def _plot_hth_profiles(results, kwargs, vars, ylim=None):
-    # Radial profiles of variables
-    nx = min(len(vars), 4)
-    ny = (len(vars) - 1) // 4 + 1
-    fig, _ = plt.subplots(ny, nx, figsize=(4*nx+1,4*ny))
-    ax = fig.get_axes()
-    for result in results:
-        for a,var in enumerate(vars):
-            window = _hth_profile(ax[a], result, var, ylim=ylim)
-
-    return fig
-
-def bz_profiles(results, kwargs):
-    return _plot_hth_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
-
-def bz_profiles_std(results, kwargs):
-    return _plot_hth_profiles(results, kwargs, ('omega_rel',), plot_std=True, ylim=(0, 1))

@@ -74,18 +74,22 @@ class ExtensibleCmd(click.Command):
 @click.option('--tag', default="compare", help="String to add to output plot names")
 @click.option('--file-tags', default=None, help="Comma-separated list of names/tags for result files")
 @click.option('--prefer-hst', is_flag=True, help="Prefer KHARMA's fluxes to post-processing values")
+@click.option('--plot-std', is_flag=True, help="Plot standard deviations on averaged quantities")
+@click.option('--plot-eh/--no-plot-eh', default=False, help="Mark event horizon where relevant")
 # Bounds
 @click.option('--xmax', type=float, default=None, help="X-axis maximum")
 @click.option('--xmin', type=float, default=None, help="X-axis minimum")
 @click.option('--ymax', type=float, default=None, help="Y-axis maximum")
 @click.option('--ymin', type=float, default=None, help="Y-axis minimum")
 @click.option('--logy', is_flag=True, help="Logarithmic Y-axis")
+@click.option('--logx', is_flag=True, help="Logarithmic X-axis")
 # Bounds on particular plots
 @click.option('--ymax-eff', type=float, default=None, help="Y-axis maximum on the efficiency, which can have spikes")
 # Time bounds
 @click.option('--avg-min', type=float, default=None, help="Time-average minimum. Negative value counts backward from end of run")
 @click.option('--avg-max', type=float, default=None, help="Time-average maximum")
 @click.option('--show-avg/--hide-avg', default=False, help="Whether to show and annotate averaged values")
+@click.option('--avg-is-smooth', is_flag=True, help="Compute all averaged values as smoothed instead")
 @click.option('--by-window', is_flag=True, help="Plot a point or line for each window of a series")
 @click.option('--per', is_flag=True, help="Normalize by instantaneous accretion rate")
 # Output
@@ -114,6 +118,8 @@ def plot_results(plot_type, files, **kwargs):
     else:
         kwargs['arange'] = None
     #print(f"Running with arange {kwargs['arange']}")
+
+    # TODO if file is folder attempt to read eht_out.h5, then whatever h5
 
     # Always load results
     if kwargs['file_tags'] is not None:
