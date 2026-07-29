@@ -183,8 +183,6 @@ def analysis(ana_types, paths, **kwargs):
         else:
             kwargs['t_avg_end'] = tend
 
-        kwargs[] = kwargs['tavgs']
-
 
         # Set filename from analysis if doing just one
         if (kwargs['filename'] == 'eht_out.h5') and not (',' in ana_types) and not kwargs['add_hst']:
