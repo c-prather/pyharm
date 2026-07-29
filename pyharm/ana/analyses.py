@@ -105,7 +105,7 @@ def dynamo(dump, out, **kwargs):
     out['t/Phi_b_upper_5'] = shell_sum(dump, 'B1', at_r=5, j_slice=(0, dump['n2']//2))
     out['t/Phi_b_lower_5'] = shell_sum(dump, 'B1', at_r=5, j_slice=(dump['n2']//2, dump['n2']))
 
-def r_profiles(dump, out, vars=('rho', 'Pg', 'u^r', 'u^3', 'u_3', 'b', 'inv_beta', 'Ptot'), **kwargs):
+def r_profiles(dump, out, vars=('rho', 'Pg', 'u^r', 'u^phi', 'u_phi', 'b', 'inv_beta', 'Ptot'), **kwargs):
     """Calculate Radial profiles, by averaging over phi and some portion of theta.
     Separate averages over the comparison "disk" portion and the rest of the domain, marked "notdisk".
     Keeps time-dependent versions for averaging post-hoc
@@ -123,7 +123,7 @@ def r_profiles(dump, out, vars=('rho', 'Pg', 'u^r', 'u^3', 'u_3', 'b', 'inv_beta
 def r_profiles_cc(dump, out, **kwargs):
     """Radial profiles of everything used in the MAD Code Comparison '22
     """
-    r_profiles(dump, out, ('rho', 'Pg', 'u^r', 'u^th', 'u^3', 'b^r', 'b^th', 'b^3', 'b', 'inv_beta', 'Ptot'), **kwargs)
+    r_profiles(dump, out, ('rho', 'Pg', 'u^r', 'u^th', 'u^phi', 'b^r', 'b^th', 'b^phi', 'b', 'inv_beta', 'Ptot'), **kwargs)
 
 def r_flux_profiles(dump, out, vars=('FM', 'FE', 'FL'), **kwargs):
     """Radial profiles of conserved mass, energy, angular momentum
@@ -236,7 +236,7 @@ def madcc(dump, out, **kwargs):
                         shell_sum(dump, dump['rho']))
 
     if _get(kwargs, 'tavgs') and out['t/is_avg']:
-        for var in ('rho', 'u^r', 'u^th', 'u^3', 'b^r', 'b^th', 'b^3', 'b', 'Pg', 'inv_beta', 'sigma'):
+        for var in ('rho', 'u^r', 'u^th', 'u^phi', 'b^r', 'b^th', 'b^phi', 'b', 'Pg', 'inv_beta', 'sigma'):
             out['rth/' + var] = dump[var].mean(axis=-1)
 
 def madcc_optional(dump, out, **kwargs):
@@ -282,7 +282,7 @@ def jet_profile(dump, out, **kwargs):
     rBZ = _get(kwargs, 'rBZ')
     iBZ = i_of(dump['r1d'], rBZ)
     s_dump = dump[iBZ]
-    for var in ['rho', 'bsq', 'b^r', 'b^th', 'b^3', 'u^r', 'u^th', 'u^3', 'FM', 'FE', 'FE_EM', 'FE_Fl', 'FL', 'FL_EM', 'FL_Fl', 'betagamma', 'Be_nob', 'Be_b']:
+    for var in ['rho', 'bsq', 'b^r', 'b^th', 'b^phi', 'u^r', 'u^th', 'u^phi', 'FM', 'FE', 'FE_EM', 'FE_Fl', 'FL', 'FL_EM', 'FL_Fl', 'betagamma', 'Be_nob', 'Be_b']:
         out['tht/' + var + '_' + str(int(rBZ))] = np.sum(s_dump[var], axis=-1)
         if _get(kwargs, 'tavgs') and out['t/is_avg']:
             out['th/' + var + '_' + str(int(rBZ))] = out['tht/' + var + '_']
@@ -325,7 +325,7 @@ def jet_cut_lite(dump, out, **kwargs):
         out['rt/' + lum] = shell_sum(dump, flux, mask=is_jet)
     for lum, flux in [['Area_mag', '1']]:
         out['rt/' + lum] = shell_sum(dump, flux, mask=(dump['sigma'] > 1))
-    for var in ['rho', 'Pg', 'u^r', 'u^th', 'u^3', 'b^r', 'b^th', 'b^3', 'b', 'inv_beta', 'Ptot']:
+    for var in ['rho', 'Pg', 'u^r', 'u^th', 'u^phi', 'b^r', 'b^th', 'b^phi', 'b', 'inv_beta', 'Ptot']:
         out['rt/' + var + '_jet'] = shell_avg(dump, var, mask=is_jet)
     del is_jet
 

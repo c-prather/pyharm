@@ -203,7 +203,7 @@ def shell_avg(dump, var, **kwargs):
     """Average a variable over spherical shells. Returns a radial profile (array length N1) or single-shell average.
     See shell_sum for arguments.
     """
-    return shell_sum(dump, var, **kwargs) / shell_sum(dump, '1', **kwargs)
+    return shell_sum(dump, var, **kwargs) / shell_sum(dump, np.ones_like(dump[var]), **kwargs)
 
 
 def sphere_sum(dump, var, r_slice=None, i_slice=None, th_slice=None, j_slice=None, mask=None):
