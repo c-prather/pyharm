@@ -319,16 +319,22 @@ def jet_cut_lite(dump, out, **kwargs):
     """Compute jet powers with just the default cut from EHTC Paper V '19.
     These are the powers used in the table in that paper and the MAD Code Comparison '22
     """
-    #is_jet = dump['Be_b'] > 1
     is_jet = dump['sigma'] >= 1
     for lum, flux in [['Mdot_jet', 'FM'], ['P_jet', 'FE'], ['P_EM_jet', 'FE_EM'], ['P_PAKE_jet', 'FE_PAKE'], ['P_EN_jet', 'FE_EN'], ['Area_jet', '1']]:
         out['rt/' + lum] = shell_sum(dump, flux, mask=is_jet)
-    for lum, flux in [['Area_mag', '1']]:
-        out['rt/' + lum] = shell_sum(dump, flux, mask=(dump['sigma'] > 1))
-    for var in ['rho', 'Pg', 'u^r', 'u^th', 'u^phi', 'b^r', 'b^th', 'b^phi', 'b', 'inv_beta', 'Ptot']:
+    for var in ['rho', 'Pg', 'u^r', 'u^th', 'u^phi', 'b^r', 'b^th', 'b^phi', 'b', 'inv_beta', 'Ptot', 'Gamma']:
         out['rt/' + var + '_jet'] = shell_avg(dump, var, mask=is_jet)
     del is_jet
 
+def jet_unbound_lite(dump, out, **kwargs):
+    """Compute jet powers using material binding energy
+    """
+    is_unbound = dump['Be_b'] > 1
+    for lum, flux in [['Mdot_unbound', 'FM'], ['P_unbound', 'FE'], ['P_EM_unbound', 'FE_EM'], ['P_PAKE_unbound', 'FE_PAKE'], ['P_EN_unbound', 'FE_EN'], ['Area_unbound', '1']]:
+        out['rt/' + lum] = shell_sum(dump, flux, mask=is_unbound)
+    for var in ['rho', 'Pg', 'u^r', 'u^th', 'u^phi', 'b^r', 'b^th', 'b^phi', 'b', 'inv_beta', 'Ptot', 'Gamma']:
+        out['rt/' + var + '_unbound'] = shell_avg(dump, var, mask=is_unbound)
+    del is_unbound
 
 def lumproxy(dump, out, **kwargs):
     """Luminosity proxy from GRMHD code comparison '19
