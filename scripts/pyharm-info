@@ -42,6 +42,8 @@ import h5py
 import pyharm
 # We're practically an io function
 from pyharm.io import *
+import pyharm.io.kharma as kio
+from pyharm.parameters import parse_parthenon_dat
 
 # Count files, get times, grid sizes, MAD/SANE, fluid properties
 
@@ -67,36 +69,41 @@ def info(paths, **kwargs):
         compare_dump_pars(paths[0], paths[1])
         exit()
 
-    if os.path.isdir(paths[0]):
-        fnames = get_fnames(paths[0])
-    else:
-        fnames = paths
+    for path in paths:
+        if ".hst" in path:
+            print_hst_info(path, verbose=kwargs['verbose'])
+            continue
 
-    if kwargs['pars']:
-        # TODO if Parthenon-based file etc etc
-        f = h5py.File(fnames[0])
-        print(f['/Input'].attrs['File'])
-        # Really do this?  Ordering?
-        exit(0)
-
-    if len(fnames) > 1:
-        code = get_dump_type(fnames[0])
-        print("{} simulation run, {} files.".format(code, len(fnames)))
-        first_dump = pyharm.load_dump(fnames[0])
-        last_dump = pyharm.load_dump(fnames[-1])
-        print("Time: {:.3} to {:.3} ({:.3} simulation units/t_g)".format(
-            first_dump['t'], last_dump['t'], last_dump['t'] - first_dump['t']))
-
-        print()
-        if not kwargs['all']:
-            print("First dump file information:")
-            print_dump_info(fnames[0], verbose=kwargs['verbose'])
+        if os.path.isdir(path):
+            fnames = get_fnames(path)
         else:
-            print("Information on all dump files:")
-            for fname in fnames:
-                print_dump_info(fname, verbose=kwargs['verbose'])
-    else:
-        print_dump_info(fnames[0], verbose=kwargs['verbose'])
+            fnames = [path,]
+
+        if kwargs['pars']:
+            # TODO if Parthenon-based file etc etc
+            f = h5py.File(fnames[0])
+            print(f['/Input'].attrs['File'])
+            # Really do this?  Ordering?
+            exit(0)
+
+        if len(fnames) > 1:
+            code = get_dump_type(fnames[0])
+            print("{} simulation run, {} files.".format(code, len(fnames)))
+            first_dump = pyharm.load_dump(fnames[0])
+            last_dump = pyharm.load_dump(fnames[-1])
+            print("Time: {:.3} to {:.3} ({:.3} simulation units/t_g)".format(
+                first_dump['t'], last_dump['t'], last_dump['t'] - first_dump['t']))
+
+            print()
+            if not kwargs['all']:
+                print("First dump file information:")
+                print_dump_info(fnames[0], verbose=kwargs['verbose'])
+            else:
+                print("Information on all dump files:")
+                for fname in fnames:
+                    print_dump_info(fname, verbose=kwargs['verbose'])
+        else:
+            print_dump_info(fnames[0], verbose=kwargs['verbose'])
 
 
 def print_dump_info(fname, verbose=False):
@@ -157,7 +164,6 @@ def compare_dump_pars(fname1, fname2):
         except:
             # If not a dump file, try to read as a parameter file
             try:
-                from pyharm.parameters import parse_parthenon_dat
                 with open(fname1, 'r') as f:
                     pars1 = parse_parthenon_dat(f.read())
             except:
@@ -170,7 +176,6 @@ def compare_dump_pars(fname1, fname2):
         except:
             # If not a dump file, try to read as a parameter file
             try:
-                from pyharm.parameters import parse_parthenon_dat
                 with open(fname2, 'r') as f:
                     pars2 = parse_parthenon_dat(f.read())
             except:
@@ -197,6 +202,13 @@ def compare_dump_pars(fname1, fname2):
         
         # Compare parameters
         compare_dicts(pars1, pars2)
+
+def print_hst_info(fname, verbose=False):
+    log = kio.read_log(fname)
+    print("KHARMA history file:")
+    print("Keys:", log.keys())
+    print("Log lines:", len(log['time']))
+    print("Time range:", log['time'][0], log['time'][-1])
 
 if __name__ == "__main__":
     info()
