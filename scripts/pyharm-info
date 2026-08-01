@@ -49,10 +49,9 @@ from pyharm.parameters import parse_parthenon_dat
 
 @click.command()
 @click.argument('paths', nargs=-1, type=click.Path(exists=True))
-@click.option('--pars/--no-pars')
-@click.option('--parsed-pars/--no-pars')
-@click.option('--compare/--no-compare')
-@click.option('--verbose/--no-verbose')
+@click.option('--pars/--no-pars', help="Print a dump file's parameters and exit")
+@click.option('--compare/--no-compare', help="Compare parameters of two dump files")
+@click.option('-v', '--verbose', is_flag=True, help="Print extra statistics")
 @click.option('--all/--one')
 @click.version_option(package_name='pyharm')
 def info(paths, **kwargs):
@@ -137,6 +136,13 @@ def print_dump_info(fname, verbose=False):
         print("beta_min (ratio of maxima):\t", Pg_max/Pb_max)
         if verbose:
             print("beta_min (on grid):\t", np.min(dump['beta']))
+            print("beta_avg (on grid):\t", np.sum(dump['gdet']*dump['beta'])/np.sum(dump['gdet']*dump['1']))
+
+        # Basics
+        print("rho_max:\t", np.max(dump['rho']))
+        print("rho_min:\t", np.min(dump['rho']))
+        print("u_max:\t", np.max(dump['u']))
+        print("u_min:\t", np.min(dump['u']))
 
         # Basics
         print("rho_max:\t", np.max(dump['rho']))
