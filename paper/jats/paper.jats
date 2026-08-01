@@ -1,0 +1,969 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Publishing DTD v1.2 20190208//EN"
+                  "JATS-publishing1.dtd">
+<article xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:xlink="http://www.w3.org/1999/xlink" dtd-version="1.2" article-type="other">
+<front>
+<journal-meta>
+<journal-id></journal-id>
+<journal-title-group>
+<journal-title>Journal of Open Source Software</journal-title>
+<abbrev-journal-title>JOSS</abbrev-journal-title>
+</journal-title-group>
+<issn publication-format="electronic">2475-9066</issn>
+<publisher>
+<publisher-name>Open Journals</publisher-name>
+</publisher>
+</journal-meta>
+<article-meta>
+<article-id pub-id-type="publisher-id">0</article-id>
+<article-id pub-id-type="doi">N/A</article-id>
+<title-group>
+<article-title><monospace>pyharm</monospace>: Analysis and Plotting for
+GRMHD</article-title>
+</title-group>
+<contrib-group>
+<contrib contrib-type="author" corresp="yes">
+<contrib-id contrib-id-type="orcid">https://orcid.org/0000-0002-0393-7734</contrib-id>
+<name>
+<surname>Prather</surname>
+<given-names>Cora</given-names>
+</name>
+<xref ref-type="aff" rid="aff-1"/>
+<xref ref-type="corresp" rid="cor-1"><sup>*</sup></xref>
+</contrib>
+<aff id="aff-1">
+<institution-wrap>
+<institution>Black Hole Initiative, Harvard University</institution>
+</institution-wrap>
+</aff>
+</contrib-group>
+<author-notes>
+<corresp id="cor-1">* E-mail: <email></email></corresp>
+</author-notes>
+<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2026-07-31">
+<day>31</day>
+<month>7</month>
+<year>2026</year>
+</pub-date>
+<volume>¿VOL?</volume>
+<issue>¿ISSUE?</issue>
+<fpage>¿PAGE?</fpage>
+<permissions>
+<copyright-statement>Authors of papers retain copyright and release the
+work under a Creative Commons Attribution 4.0 International License (CC
+BY 4.0)</copyright-statement>
+<copyright-year>1970</copyright-year>
+<copyright-holder>The article authors</copyright-holder>
+<license license-type="open-access" xlink:href="https://creativecommons.org/licenses/by/4.0/">
+<license-p>Authors of papers retain copyright and release the work under
+a Creative Commons Attribution 4.0 International License (CC BY
+4.0)</license-p>
+</license>
+</permissions>
+<kwd-group kwd-group-type="author">
+<kwd>Python</kwd>
+<kwd>magnetohydrodynamics</kwd>
+<kwd>general relativity</kwd>
+<kwd>astronomy</kwd>
+</kwd-group>
+</article-meta>
+</front>
+<body>
+<sec id="summary">
+  <title>Summary</title>
+  <p><monospace>pyharm</monospace> is a scalable python library for
+  plotting and analyzing some general-relativistic magnetohydrodynamic
+  (GRMHD) simulations, especially those simulating matter around black
+  holes. It handles reading a number of different simulation snapshot
+  formats, plotting basic and derived fluid properties in different
+  spacetimes and coordinate systems, and computing arbitrary reductions
+  across large datasets of fluid snapshots.</p>
+</sec>
+<sec id="statement-of-need">
+  <title>Statement of Need</title>
+  <p>As large, complex 3D datasets, GRMHD simulation snapshots require
+  sophisticated post-processing and plotting code in order to correctly
+  interpret their data values. Writing new plotting scripts from scratch
+  takes time and effort, not to mention being bug-prone due to the
+  overall complexity. A framework which pre-defines variables and
+  coordinates consistently saves time in understanding these datasets,
+  and improves the quality of results by allowing fixes to be preserved
+  in all future calculations.</p>
+</sec>
+<sec id="state-of-the-field">
+  <title>State of the Field</title>
+  <p>Many plotting libraries and utilities exist for visualizing and
+  analyzing eulerian hydrodynamics simulations at scale, e.g.
+  (<xref alt="Turk et al., 2010" rid="ref-ytPaper" ref-type="bibr">Turk
+  et al., 2010</xref>),
+  (<xref alt="Bethel et al., 2012" rid="ref-visitPaper" ref-type="bibr">Bethel
+  et al., 2012</xref>),
+  (<xref alt="Ahrens et al., 2005" rid="ref-paraviewPaper" ref-type="bibr">Ahrens
+  et al., 2005</xref>). However, GRMHD in particular presents two unique
+  challenges that make these tools difficult to use or wholly
+  insufficient:</p>
+  <list list-type="order">
+    <list-item>
+      <p>An analytic transformation is often made from a “natural”
+      coordinate system (<inline-formula><alternatives>
+      <tex-math><![CDATA[r]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>r</mml:mi></mml:math></alternatives></inline-formula>,
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\theta]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>θ</mml:mi></mml:math></alternatives></inline-formula>,
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\phi]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>ϕ</mml:mi></mml:math></alternatives></inline-formula>
+      in the spacetime) into a separate coordinate system where the
+      simulation grid is regular. Imaging simulations requires
+      performing the reverse transformation.</p>
+    </list-item>
+    <list-item>
+      <p>Fluid quantities in GRMHD do not generally match the quantities
+      in Newtonian MHD, and generally require the local metric
+      information, and potentially frame transformations, to
+      compute.</p>
+    </list-item>
+  </list>
+  <p>Plotting scripts exist which natively support GRMHD grids and
+  quantities, but are generally either private, or specialized to a
+  particular code or style of GRMHD
+  (<xref alt="Bozzola, 2021" rid="ref-kuibitPaper" ref-type="bibr">Bozzola,
+  2021</xref>). <monospace>pyharm</monospace> attempts to support as
+  many codes as possible.</p>
+</sec>
+<sec id="code-design">
+  <title>Code Design</title>
+  <p>The central class in pyharm is the
+  <monospace>FluidState</monospace>, representing a snapshot of a GRMHD
+  simulation at some point in time (either generated, memory-backed, or
+  file-backed, generally the latter). Data retrieval and manipulation
+  are both done by means of the <monospace>__getitem__</monospace>
+  function, allowing users to treat the object as a dictionary
+  containing any desired derived variable. When a key is retrieved,
+  e.g. <monospace>dump['beta']</monospace> for the plasma
+  <inline-formula><alternatives>
+  <tex-math><![CDATA[\beta]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>β</mml:mi></mml:math></alternatives></inline-formula>
+  parameter (ratio of gas pressure to magnetic pressure), it is computed
+  on the fly, returned, and cached in memory for the next use.
+  Quantities can be defined in terms of one another recursively, and
+  thus the code avoids repeating common calculations.</p>
+  <p>While <monospace>pyharm</monospace> is designed first as a python
+  library for user scripts, it has gained a number of useful
+  command-line utilities, two of which are easily extensible and broadly
+  useful as a way of accessing <monospace>pyharm</monospace>’s
+  functionality.</p>
+  <p><monospace>pyharm movie</monospace> handles slice and average plots
+  per-snapshot across a simulation (including optionally encoding the
+  results using <monospace>ffmpeg</monospace>). Large jobs consisting of
+  many frames can be parallelized across multiple cores or nodes with
+  Python’s built-in <monospace>multiprocessing</monospace> or with
+  <monospace>mpi4py.futures</monospace>
+  (<xref alt="Rogowski et al., 2023" rid="ref-rogowskiMpi4pyfuturesMPIBasedAsynchronous2023" ref-type="bibr">Rogowski
+  et al., 2023</xref>). New movies can be defined solely by adding a
+  function in <monospace>phyarm/plots/figures.py</monospace> which
+  creates one frame, with the parallelism features shared between all
+  functions.</p>
+  <p><monospace>pyharm analysis</monospace> handles reductions over
+  snapshots from an entire simulation (slices, time-averages, flow
+  rates, etc.). Results are written to a single HDF5 file collecting
+  from all processes/ranks, in a standard layout readable by another
+  command-line script, <monospace>pyharm plot-result</monospace>.</p>
+  <p>In addition to the main scripts, <monospace>pyharm</monospace>
+  provides a number of small utilities for checking simulation logs for
+  progress and errors, checking validity of simulation snapshots, or
+  checking snapshots against one another.</p>
+</sec>
+<sec id="implementation-notes">
+  <title>Implementation Notes</title>
+  <p><monospace>pyharm</monospace> is written in pure Python using
+  <monospace>numpy</monospace>, <monospace>scipy</monospace>, and
+  <monospace>matplotlib</monospace>. As it is implemented purely with
+  array operations, not loops, the code shares
+  <monospace>numpy</monospace> and <monospace>scipy</monospace>’s good
+  efficiency on single CPU cores. Parallelizing operations on a single
+  dump is not a goal of the code – usually, compute-intensive operations
+  are conducted across many dump files in a way which is substantially
+  or wholly embarrassingly parallel. Likewise, GPUs are not a priority
+  as many operations are already significantly bottlenecked by file read
+  speed. Instead, <monospace>pyharm</monospace> achieves good speed
+  mostly by avoiding unnecessary read and compute operations.</p>
+  <p>As its most important optimization, <monospace>pyharm</monospace>
+  supports slicing of HDF5-based dump files without first reading the
+  entire grid into memory. Thus if only, e.g., a slice at
+  <inline-formula><alternatives>
+  <tex-math><![CDATA[\phi = 0]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ϕ</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+  is required, <monospace>pyharm</monospace> supports a slicing
+  operation <monospace>sliced_dump = dump[:,:,0]</monospace> before any
+  reads are performed, and will read only the given slice from the data
+  file. Most operations are supported on sliced files, including the
+  calculation of derived variables, reductions, and plotting.</p>
+  <p>In addition, the (sliced) arrays corresponding to each key are
+  natively cached by the pyharm data objects: file readers can cache the
+  variables retrieved by a <monospace>FluidState</monospace> object, and
+  <monospace>FluidState</monospace> objects themselves can cache the
+  results of computations to avoid repeating them. Caching can be
+  memory-intensive, but when combined with slicing it can lead to
+  dramatic improvements in runtime of complex analyses and reductions
+  which share basic components.</p>
+  <p>With these optimizations, <monospace>pyharm</monospace> can perform
+  simple movies at great speed: <inline-formula><alternatives>
+  <tex-math><![CDATA[XX]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>X</mml:mi><mml:mi>X</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
+  frames/s on 64 cores of a single CPU node on the Harvard Cannon
+  cluster, XX frames/s on ALCF Crux. More complicated analyses, for
+  example <monospace>example_analysis</monospace> with computations of
+  XX, YY, ZZ, are performed at XX dumps/s on Cannon, YY dumps/s on
+  Crux.</p>
+</sec>
+<sec id="tests">
+  <title>Tests</title>
+  <p>As primarily a plotting framework, most bugs or undesired behaviors
+  in pyharm cannot be easily tested in an automated way. However,
+  calculations of physical quantities are tested against expectations,
+  such as an example calculation of 4-vector quantities
+  <ext-link ext-link-type="uri" xlink:href="https://github.com/AFD-Illinois/docs/wiki/fmks-and-you">here</ext-link>.
+  “Golden file” regression tests of the calculation of basic reductions
+  are also available, over an array of different file formats.</p>
+</sec>
+<sec id="research-projects-using-pyharm">
+  <title>Research projects using <monospace>pyharm</monospace></title>
+  <p><monospace>pyharm</monospace> has been used in obtaining the
+  results of many published papers, especially from the GRMHD code
+  KHARMA
+  (<xref alt="Prather, 2025" rid="ref-Prather2025" ref-type="bibr">Prather,
+  2025</xref>). This includes collaboration papers from the EHT such as
+  (<xref alt="Event Horizon Telescope Collaboration et al., 2019" rid="ref-EHTM87V" ref-type="bibr">Event
+  Horizon Telescope Collaboration et al., 2019</xref>) and
+  (<xref alt="Event Horizon Telescope Collaboration et al., 2022" rid="ref-EHTSgrAV" ref-type="bibr">Event
+  Horizon Telescope Collaboration et al., 2022</xref>), and independent
+  papers using KHARMA, e.g. most recently
+  (<xref alt="Thomas2026?" rid="ref-Thomas2026" ref-type="bibr"><bold>Thomas2026?</bold></xref>),
+  (<xref alt="Bukowiecka et al., 2026" rid="ref-bukowiecka2026" ref-type="bibr">Bukowiecka
+  et al., 2026</xref>) and
+  (<xref alt="Stanway et al., 2026" rid="ref-stanway2026" ref-type="bibr">Stanway
+  et al., 2026</xref>).</p>
+</sec>
+<sec id="acknowledgements">
+  <title>Acknowledgements</title>
+  <p>Work supported by the Black Hole Initiative at Harvard University,
+  which is funded in part by the Gordon and Betty Moore Foundation
+  (grant #13526). It was also made possible through the support of a
+  grant from the John Templeton Foundation (grant #63445). The opinions
+  expressed in this publication are those of the author(s) and do not
+  necessarily reflect the views of these Foundations.</p>
+  <p>An award of computer time was provided by the U.S. Department of
+  Energy’s (DOE) Innovative and Novel Computational Impact on Theory and
+  Experiment (INCITE) Program. This research used supporting resources
+  at the Argonne and the Oak Ridge Leadership Computing Facilities. The
+  Argonne Leadership Computing Facility at Argonne National Laboratory
+  is supported by the Office of Science of the U.S. DOE under Contract
+  No. DE-AC02-06CH11357. The Oak Ridge Leadership Computing Facility at
+  the Oak Ridge National Laboratory is supported by the Office of
+  Science of the U.S. DOE under Contract No. DE-AC05-00OR22725.</p>
+  <p>This work used Delta CPU at the National Center for Supercomputing
+  Applications through allocation PHY250339 from the Advanced
+  Cyberinfrastructure Coordination Ecosystem: Services &amp; Support
+  (ACCESS) program, which is supported by U.S. National Science
+  Foundation grants #2138259, #2138286, #2138307, #2137603, and
+  #2138296.</p>
+</sec>
+<sec id="ai-usage-disclosure">
+  <title>AI usage disclosure</title>
+  <p>No AI tools were used in developing <monospace>pyharm</monospace>
+  or this paper.</p>
+</sec>
+</body>
+<back>
+<ref-list>
+  <title></title>
+  <ref id="ref-bukowiecka2026">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Bukowiecka</surname><given-names>Nikola</given-names></name>
+        <name><surname>Ricarte</surname><given-names>Angelo</given-names></name>
+        <name><surname>Kocherlakota</surname><given-names>Prashant</given-names></name>
+        <name><surname>Prather</surname><given-names>Cora</given-names></name>
+      </person-group>
+      <article-title>Observational distinguishability of the Kerr and Kerr-Hayward metrics to EHT</article-title>
+      <source>Physical Review D</source>
+      <publisher-name>American Physical Society</publisher-name>
+      <year iso-8601-date="2026-07">2026</year><month>07</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
+      <volume>114</volume>
+      <issue>2</issue>
+      <pub-id pub-id-type="doi">10.1103/rfrx-tfz8</pub-id>
+      <fpage>023008</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-EHTM87V">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <string-name>Event Horizon Telescope Collaboration</string-name>
+        <name><surname>Akiyama</surname><given-names>Kazunori</given-names></name>
+        <name><surname>Alberdi</surname><given-names>Antxon</given-names></name>
+        <name><surname>Alef</surname><given-names>Walter</given-names></name>
+        <name><surname>Asada</surname><given-names>Keiichi</given-names></name>
+        <name><surname>Azulay</surname><given-names>Rebecca</given-names></name>
+        <name><surname>Baczko</surname><given-names>Anne-Kathrin</given-names></name>
+        <name><surname>Ball</surname><given-names>David</given-names></name>
+        <name><surname>Baloković</surname><given-names>Mislav</given-names></name>
+        <name><surname>Barrett</surname><given-names>John</given-names></name>
+        <name><surname>Bintley</surname><given-names>Dan</given-names></name>
+        <name><surname>Blackburn</surname><given-names>Lindy</given-names></name>
+        <name><surname>Boland</surname><given-names>Wilfred</given-names></name>
+        <name><surname>Bouman</surname><given-names>Katherine L.</given-names></name>
+        <name><surname>Bower</surname><given-names>Geoffrey C.</given-names></name>
+        <name><surname>Bremer</surname><given-names>Michael</given-names></name>
+        <name><surname>Brinkerink</surname><given-names>Christiaan D.</given-names></name>
+        <name><surname>Brissenden</surname><given-names>Roger</given-names></name>
+        <name><surname>Britzen</surname><given-names>Silke</given-names></name>
+        <name><surname>Broderick</surname><given-names>Avery E.</given-names></name>
+        <name><surname>Broguiere</surname><given-names>Dominique</given-names></name>
+        <name><surname>Bronzwaer</surname><given-names>Thomas</given-names></name>
+        <name><surname>Byun</surname><given-names>Do-Young</given-names></name>
+        <name><surname>Carlstrom</surname><given-names>John E.</given-names></name>
+        <name><surname>Chael</surname><given-names>Andrew</given-names></name>
+        <name><surname>Chan</surname><given-names>Chi-kwan</given-names></name>
+        <name><surname>Chatterjee</surname><given-names>Shami</given-names></name>
+        <name><surname>Chatterjee</surname><given-names>Koushik</given-names></name>
+        <name><surname>Chen</surname><given-names>Ming-Tang</given-names></name>
+        <name><surname>Chen</surname><given-names>Yongjun</given-names></name>
+        <name><surname>Cho</surname><given-names>Ilje</given-names></name>
+        <name><surname>Christian</surname><given-names>Pierre</given-names></name>
+        <name><surname>Conway</surname><given-names>John E.</given-names></name>
+        <name><surname>Cordes</surname><given-names>James M.</given-names></name>
+        <name><surname>Crew</surname><given-names>Geoffrey B.</given-names></name>
+        <name><surname>Cui</surname><given-names>Yuzhu</given-names></name>
+        <name><surname>Davelaar</surname><given-names>Jordy</given-names></name>
+        <name><surname>De Laurentis</surname><given-names>Mariafelicia</given-names></name>
+        <name><surname>Deane</surname><given-names>Roger</given-names></name>
+        <name><surname>Dempsey</surname><given-names>Jessica</given-names></name>
+        <name><surname>Desvignes</surname><given-names>Gregory</given-names></name>
+        <name><surname>Dexter</surname><given-names>Jason</given-names></name>
+        <name><surname>Doeleman</surname><given-names>Sheperd S.</given-names></name>
+        <name><surname>Eatough</surname><given-names>Ralph P.</given-names></name>
+        <name><surname>Falcke</surname><given-names>Heino</given-names></name>
+        <name><surname>Fish</surname><given-names>Vincent L.</given-names></name>
+        <name><surname>Fomalont</surname><given-names>Ed</given-names></name>
+        <name><surname>Fraga-Encinas</surname><given-names>Raquel</given-names></name>
+        <name><surname>Friberg</surname><given-names>Per</given-names></name>
+        <name><surname>Fromm</surname><given-names>Christian M.</given-names></name>
+        <name><surname>Gómez</surname><given-names>José L.</given-names></name>
+        <name><surname>Galison</surname><given-names>Peter</given-names></name>
+        <name><surname>Gammie</surname><given-names>Charles F.</given-names></name>
+        <name><surname>García</surname><given-names>Roberto</given-names></name>
+        <name><surname>Gentaz</surname><given-names>Olivier</given-names></name>
+        <name><surname>Georgiev</surname><given-names>Boris</given-names></name>
+        <name><surname>Goddi</surname><given-names>Ciriaco</given-names></name>
+        <name><surname>Gold</surname><given-names>Roman</given-names></name>
+        <name><surname>Gu</surname><given-names>Minfeng</given-names></name>
+        <name><surname>Gurwell</surname><given-names>Mark</given-names></name>
+        <name><surname>Hada</surname><given-names>Kazuhiro</given-names></name>
+        <name><surname>Hecht</surname><given-names>Michael H.</given-names></name>
+        <name><surname>Hesper</surname><given-names>Ronald</given-names></name>
+        <name><surname>Ho</surname><given-names>Luis C.</given-names></name>
+        <name><surname>Ho</surname><given-names>Paul</given-names></name>
+        <name><surname>Honma</surname><given-names>Mareki</given-names></name>
+        <name><surname>Huang</surname><given-names>Chih-Wei L.</given-names></name>
+        <name><surname>Huang</surname><given-names>Lei</given-names></name>
+        <name><surname>Hughes</surname><given-names>David H.</given-names></name>
+        <name><surname>Ikeda</surname><given-names>Shiro</given-names></name>
+        <name><surname>Inoue</surname><given-names>Makoto</given-names></name>
+        <name><surname>Issaoun</surname><given-names>Sara</given-names></name>
+        <name><surname>James</surname><given-names>David J.</given-names></name>
+        <name><surname>Jannuzi</surname><given-names>Buell T.</given-names></name>
+        <name><surname>Janssen</surname><given-names>Michael</given-names></name>
+        <name><surname>Jeter</surname><given-names>Britton</given-names></name>
+        <name><surname>Jiang</surname><given-names>Wu</given-names></name>
+        <name><surname>Johnson</surname><given-names>Michael D.</given-names></name>
+        <name><surname>Jorstad</surname><given-names>Svetlana</given-names></name>
+        <name><surname>Jung</surname><given-names>Taehyun</given-names></name>
+        <name><surname>Karami</surname><given-names>Mansour</given-names></name>
+        <name><surname>Karuppusamy</surname><given-names>Ramesh</given-names></name>
+        <name><surname>Kawashima</surname><given-names>Tomohisa</given-names></name>
+        <name><surname>Keating</surname><given-names>Garrett K.</given-names></name>
+        <name><surname>Kettenis</surname><given-names>Mark</given-names></name>
+        <name><surname>Kim</surname><given-names>Jae-Young</given-names></name>
+        <name><surname>Kim</surname><given-names>Junhan</given-names></name>
+        <name><surname>Kim</surname><given-names>Jongsoo</given-names></name>
+        <name><surname>Kino</surname><given-names>Motoki</given-names></name>
+        <name><surname>Koay</surname><given-names>Jun Yi</given-names></name>
+        <name><surname>Koch</surname><given-names>Patrick M.</given-names></name>
+        <name><surname>Koyama</surname><given-names>Shoko</given-names></name>
+        <name><surname>Kramer</surname><given-names>Michael</given-names></name>
+        <name><surname>Kramer</surname><given-names>Carsten</given-names></name>
+        <name><surname>Krichbaum</surname><given-names>Thomas P.</given-names></name>
+        <name><surname>Kuo</surname><given-names>Cheng-Yu</given-names></name>
+        <name><surname>Lauer</surname><given-names>Tod R.</given-names></name>
+        <name><surname>Lee</surname><given-names>Sang-Sung</given-names></name>
+        <name><surname>Li</surname><given-names>Yan-Rong</given-names></name>
+        <name><surname>Li</surname><given-names>Zhiyuan</given-names></name>
+        <name><surname>Lindqvist</surname><given-names>Michael</given-names></name>
+        <name><surname>Liu</surname><given-names>Kuo</given-names></name>
+        <name><surname>Liuzzo</surname><given-names>Elisabetta</given-names></name>
+        <name><surname>Lo</surname><given-names>Wen-Ping</given-names></name>
+        <name><surname>Lobanov</surname><given-names>Andrei P.</given-names></name>
+        <name><surname>Loinard</surname><given-names>Laurent</given-names></name>
+        <name><surname>Lonsdale</surname><given-names>Colin</given-names></name>
+        <name><surname>Lu</surname><given-names>Ru-Sen</given-names></name>
+        <name><surname>MacDonald</surname><given-names>Nicholas R.</given-names></name>
+        <name><surname>Mao</surname><given-names>Jirong</given-names></name>
+        <name><surname>Markoff</surname><given-names>Sera</given-names></name>
+        <name><surname>Marrone</surname><given-names>Daniel P.</given-names></name>
+        <name><surname>Marscher</surname><given-names>Alan P.</given-names></name>
+        <name><surname>Martí-Vidal</surname><given-names>Iván</given-names></name>
+        <name><surname>Matsushita</surname><given-names>Satoki</given-names></name>
+        <name><surname>Matthews</surname><given-names>Lynn D.</given-names></name>
+        <name><surname>Medeiros</surname><given-names>Lia</given-names></name>
+        <name><surname>Menten</surname><given-names>Karl M.</given-names></name>
+        <name><surname>Mizuno</surname><given-names>Yosuke</given-names></name>
+        <name><surname>Mizuno</surname><given-names>Izumi</given-names></name>
+        <name><surname>Moran</surname><given-names>James M.</given-names></name>
+        <name><surname>Moriyama</surname><given-names>Kotaro</given-names></name>
+        <name><surname>Moscibrodzka</surname><given-names>Monika</given-names></name>
+        <name><surname>Mul̈ler</surname><given-names>Cornelia</given-names></name>
+        <name><surname>Nagai</surname><given-names>Hiroshi</given-names></name>
+        <name><surname>Nagar</surname><given-names>Neil M.</given-names></name>
+        <name><surname>Nakamura</surname><given-names>Masanori</given-names></name>
+        <name><surname>Narayan</surname><given-names>Ramesh</given-names></name>
+        <name><surname>Narayanan</surname><given-names>Gopal</given-names></name>
+        <name><surname>Natarajan</surname><given-names>Iniyan</given-names></name>
+        <name><surname>Neri</surname><given-names>Roberto</given-names></name>
+        <name><surname>Ni</surname><given-names>Chunchong</given-names></name>
+        <name><surname>Noutsos</surname><given-names>Aristeidis</given-names></name>
+        <name><surname>Okino</surname><given-names>Hiroki</given-names></name>
+        <name><surname>Olivares</surname><given-names>Héctor</given-names></name>
+        <name><surname>Oyama</surname><given-names>Tomoaki</given-names></name>
+        <name><surname>Özel</surname><given-names>Feryal</given-names></name>
+        <name><surname>Palumbo</surname><given-names>Daniel C. M.</given-names></name>
+        <name><surname>Patel</surname><given-names>Nimesh</given-names></name>
+        <name><surname>Pen</surname><given-names>Ue-Li</given-names></name>
+        <name><surname>Pesce</surname><given-names>Dominic W.</given-names></name>
+        <name><surname>Piétu</surname><given-names>Vincent</given-names></name>
+        <name><surname>Plambeck</surname><given-names>Richard</given-names></name>
+        <name><surname>PopStefanija</surname><given-names>Aleksandar</given-names></name>
+        <name><surname>Porth</surname><given-names>Oliver</given-names></name>
+        <name><surname>Prather</surname><given-names>Ben</given-names></name>
+        <name><surname>Preciado-López</surname><given-names>Jorge A.</given-names></name>
+        <name><surname>Psaltis</surname><given-names>Dimitrios</given-names></name>
+        <name><surname>Pu</surname><given-names>Hung-Yi</given-names></name>
+        <name><surname>Ramakrishnan</surname><given-names>Venkatessh</given-names></name>
+        <name><surname>Rao</surname><given-names>Ramprasad</given-names></name>
+        <name><surname>Rawlings</surname><given-names>Mark G.</given-names></name>
+        <name><surname>Raymond</surname><given-names>Alexander W.</given-names></name>
+        <name><surname>Rezzolla</surname><given-names>Luciano</given-names></name>
+        <name><surname>Ripperda</surname><given-names>Bart</given-names></name>
+        <name><surname>Roelofs</surname><given-names>Freek</given-names></name>
+        <name><surname>Rogers</surname><given-names>Alan</given-names></name>
+        <name><surname>Ros</surname><given-names>Eduardo</given-names></name>
+        <name><surname>Rose</surname><given-names>Mel</given-names></name>
+        <name><surname>Roshanineshat</surname><given-names>Arash</given-names></name>
+        <name><surname>Rottmann</surname><given-names>Helge</given-names></name>
+        <name><surname>Roy</surname><given-names>Alan L.</given-names></name>
+        <name><surname>Ruszczyk</surname><given-names>Chet</given-names></name>
+        <name><surname>Ryan</surname><given-names>Benjamin R.</given-names></name>
+        <name><surname>Rygl</surname><given-names>Kazi L. J.</given-names></name>
+        <name><surname>Sánchez</surname><given-names>Salvador</given-names></name>
+        <name><surname>Sánchez-Arguelles</surname><given-names>David</given-names></name>
+        <name><surname>Sasada</surname><given-names>Mahito</given-names></name>
+        <name><surname>Savolainen</surname><given-names>Tuomas</given-names></name>
+        <name><surname>Schloerb</surname><given-names>F. Peter</given-names></name>
+        <name><surname>Schuster</surname><given-names>Karl-Friedrich</given-names></name>
+        <name><surname>Shao</surname><given-names>Lijing</given-names></name>
+        <name><surname>Shen</surname><given-names>Zhiqiang</given-names></name>
+        <name><surname>Small</surname><given-names>Des</given-names></name>
+        <name><surname>Sohn</surname><given-names>Bong Won</given-names></name>
+        <name><surname>SooHoo</surname><given-names>Jason</given-names></name>
+        <name><surname>Tazaki</surname><given-names>Fumie</given-names></name>
+        <name><surname>Tiede</surname><given-names>Paul</given-names></name>
+        <name><surname>Tilanus</surname><given-names>Remo P. J.</given-names></name>
+        <name><surname>Titus</surname><given-names>Michael</given-names></name>
+        <name><surname>Toma</surname><given-names>Kenji</given-names></name>
+        <name><surname>Torne</surname><given-names>Pablo</given-names></name>
+        <name><surname>Trent</surname><given-names>Tyler</given-names></name>
+        <name><surname>Trippe</surname><given-names>Sascha</given-names></name>
+        <name><surname>Tsuda</surname><given-names>Shuichiro</given-names></name>
+        <name><surname>van Bemmel</surname><given-names>Ilse</given-names></name>
+        <name><surname>van Langevelde</surname><given-names>Huib Jan</given-names></name>
+        <name><surname>van Rossum</surname><given-names>Daniel R.</given-names></name>
+        <name><surname>Wagner</surname><given-names>Jan</given-names></name>
+        <name><surname>Wardle</surname><given-names>John</given-names></name>
+        <name><surname>Weintroub</surname><given-names>Jonathan</given-names></name>
+        <name><surname>Wex</surname><given-names>Norbert</given-names></name>
+        <name><surname>Wharton</surname><given-names>Robert</given-names></name>
+        <name><surname>Wielgus</surname><given-names>Maciek</given-names></name>
+        <name><surname>Wong</surname><given-names>George N.</given-names></name>
+        <name><surname>Wu</surname><given-names>Qingwen</given-names></name>
+        <name><surname>Young</surname><given-names>André</given-names></name>
+        <name><surname>Young</surname><given-names>Ken</given-names></name>
+        <name><surname>Younsi</surname><given-names>Ziri</given-names></name>
+        <name><surname>Yuan</surname><given-names>Feng</given-names></name>
+        <name><surname>Yuan</surname><given-names>Ye-Fei</given-names></name>
+        <name><surname>Zensus</surname><given-names>J. Anton</given-names></name>
+        <name><surname>Zhao</surname><given-names>Guangyao</given-names></name>
+        <name><surname>Zhao</surname><given-names>Shan-Shan</given-names></name>
+        <name><surname>Zhu</surname><given-names>Ziyan</given-names></name>
+        <name><surname>Anczarski</surname><given-names>Jadyn</given-names></name>
+        <name><surname>Baganoff</surname><given-names>Frederick K.</given-names></name>
+        <name><surname>Eckart</surname><given-names>Andreas</given-names></name>
+        <name><surname>Farah</surname><given-names>Joseph R.</given-names></name>
+        <name><surname>Haggard</surname><given-names>Daryl</given-names></name>
+        <name><surname>Meyer-Zhao</surname><given-names>Zheng</given-names></name>
+        <name><surname>Michalik</surname><given-names>Daniel</given-names></name>
+        <name><surname>Nadolski</surname><given-names>Andrew</given-names></name>
+        <name><surname>Neilsen</surname><given-names>Joseph</given-names></name>
+        <name><surname>Nishioka</surname><given-names>Hiroaki</given-names></name>
+        <name><surname>Nowak</surname><given-names>Michael A.</given-names></name>
+        <name><surname>Pradel</surname><given-names>Nicolas</given-names></name>
+        <name><surname>Primiani</surname><given-names>Rurik A.</given-names></name>
+        <name><surname>Souccar</surname><given-names>Kamal</given-names></name>
+        <name><surname>Vertatschitsch</surname><given-names>Laura</given-names></name>
+        <name><surname>Yamaguchi</surname><given-names>Paul</given-names></name>
+        <name><surname>Zhang</surname><given-names>Shuo</given-names></name>
+      </person-group>
+      <article-title>First M87 Event Horizon Telescope Results. V. Physical Origin of the Asymmetric Ring</article-title>
+      <source>The Astrophysical Journal</source>
+      <year iso-8601-date="2019-04">2019</year><month>04</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2022-05-26">2022</year><month>05</month><day>26</day></date-in-citation>
+      <volume>875</volume>
+      <issn>0004-637X</issn>
+      <pub-id pub-id-type="doi">10.3847/2041-8213/ab0f43</pub-id>
+      <fpage>L5</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-EHTSgrAV">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <string-name>Event Horizon Telescope Collaboration</string-name>
+        <name><surname>Akiyama</surname><given-names>Kazunori</given-names></name>
+        <name><surname>Alberdi</surname><given-names>Antxon</given-names></name>
+        <name><surname>Alef</surname><given-names>Walter</given-names></name>
+        <name><surname>Algaba</surname><given-names>Juan Carlos</given-names></name>
+        <name><surname>Anantua</surname><given-names>Richard</given-names></name>
+        <name><surname>Asada</surname><given-names>Keiichi</given-names></name>
+        <name><surname>Azulay</surname><given-names>Rebecca</given-names></name>
+        <name><surname>Bach</surname><given-names>Uwe</given-names></name>
+        <name><surname>Baczko</surname><given-names>Anne-Kathrin</given-names></name>
+        <name><surname>Ball</surname><given-names>David</given-names></name>
+        <name><surname>Baloković</surname><given-names>Mislav</given-names></name>
+        <name><surname>Barrett</surname><given-names>John</given-names></name>
+        <name><surname>Bauböck</surname><given-names>Michi</given-names></name>
+        <name><surname>Benson</surname><given-names>Bradford A.</given-names></name>
+        <name><surname>Bintley</surname><given-names>Dan</given-names></name>
+        <name><surname>Blackburn</surname><given-names>Lindy</given-names></name>
+        <name><surname>Blundell</surname><given-names>Raymond</given-names></name>
+        <name><surname>Bouman</surname><given-names>Katherine L.</given-names></name>
+        <name><surname>Bower</surname><given-names>Geoffrey C.</given-names></name>
+        <name><surname>Boyce</surname><given-names>Hope</given-names></name>
+        <name><surname>Bremer</surname><given-names>Michael</given-names></name>
+        <name><surname>Brinkerink</surname><given-names>Christiaan D.</given-names></name>
+        <name><surname>Brissenden</surname><given-names>Roger</given-names></name>
+        <name><surname>Britzen</surname><given-names>Silke</given-names></name>
+        <name><surname>Broderick</surname><given-names>Avery E.</given-names></name>
+        <name><surname>Broguiere</surname><given-names>Dominique</given-names></name>
+        <name><surname>Bronzwaer</surname><given-names>Thomas</given-names></name>
+        <name><surname>Bustamante</surname><given-names>Sandra</given-names></name>
+        <name><surname>Byun</surname><given-names>Do-Young</given-names></name>
+        <name><surname>Carlstrom</surname><given-names>John E.</given-names></name>
+        <name><surname>Ceccobello</surname><given-names>Chiara</given-names></name>
+        <name><surname>Chael</surname><given-names>Andrew</given-names></name>
+        <name><surname>Chan</surname><given-names>Chi-kwan</given-names></name>
+        <name><surname>Chatterjee</surname><given-names>Koushik</given-names></name>
+        <name><surname>Chatterjee</surname><given-names>Shami</given-names></name>
+        <name><surname>Chen</surname><given-names>Ming-Tang</given-names></name>
+        <name><surname>Chen</surname><given-names>Yongjun</given-names></name>
+        <name><surname>Cheng</surname><given-names>Xiaopeng</given-names></name>
+        <name><surname>Cho</surname><given-names>Ilje</given-names></name>
+        <name><surname>Christian</surname><given-names>Pierre</given-names></name>
+        <name><surname>Conroy</surname><given-names>Nicholas S.</given-names></name>
+        <name><surname>Conway</surname><given-names>John E.</given-names></name>
+        <name><surname>Cordes</surname><given-names>James M.</given-names></name>
+        <name><surname>Crawford</surname><given-names>Thomas M.</given-names></name>
+        <name><surname>Crew</surname><given-names>Geoffrey B.</given-names></name>
+        <name><surname>Cruz-Osorio</surname><given-names>Alejandro</given-names></name>
+        <name><surname>Cui</surname><given-names>Yuzhu</given-names></name>
+        <name><surname>Davelaar</surname><given-names>Jordy</given-names></name>
+        <name><surname>Laurentis</surname><given-names>Mariafelicia De</given-names></name>
+        <name><surname>Deane</surname><given-names>Roger</given-names></name>
+        <name><surname>Dempsey</surname><given-names>Jessica</given-names></name>
+        <name><surname>Desvignes</surname><given-names>Gregory</given-names></name>
+        <name><surname>Dexter</surname><given-names>Jason</given-names></name>
+        <name><surname>Dhruv</surname><given-names>Vedant</given-names></name>
+        <name><surname>Doeleman</surname><given-names>Sheperd S.</given-names></name>
+        <name><surname>Dougal</surname><given-names>Sean</given-names></name>
+        <name><surname>Dzib</surname><given-names>Sergio A.</given-names></name>
+        <name><surname>Eatough</surname><given-names>Ralph P.</given-names></name>
+        <name><surname>Emami</surname><given-names>Razieh</given-names></name>
+        <name><surname>Falcke</surname><given-names>Heino</given-names></name>
+        <name><surname>Farah</surname><given-names>Joseph</given-names></name>
+        <name><surname>Fish</surname><given-names>Vincent L.</given-names></name>
+        <name><surname>Fomalont</surname><given-names>Ed</given-names></name>
+        <name><surname>Ford</surname><given-names>H. Alyson</given-names></name>
+        <name><surname>Fraga-Encinas</surname><given-names>Raquel</given-names></name>
+        <name><surname>Freeman</surname><given-names>William T.</given-names></name>
+        <name><surname>Friberg</surname><given-names>Per</given-names></name>
+        <name><surname>Fromm</surname><given-names>Christian M.</given-names></name>
+        <name><surname>Fuentes</surname><given-names>Antonio</given-names></name>
+        <name><surname>Galison</surname><given-names>Peter</given-names></name>
+        <name><surname>Gammie</surname><given-names>Charles F.</given-names></name>
+        <name><surname>García</surname><given-names>Roberto</given-names></name>
+        <name><surname>Gentaz</surname><given-names>Olivier</given-names></name>
+        <name><surname>Georgiev</surname><given-names>Boris</given-names></name>
+        <name><surname>Goddi</surname><given-names>Ciriaco</given-names></name>
+        <name><surname>Gold</surname><given-names>Roman</given-names></name>
+        <name><surname>Gómez-Ruiz</surname><given-names>Arturo I.</given-names></name>
+        <name><surname>Gómez</surname><given-names>José L.</given-names></name>
+        <name><surname>Gu</surname><given-names>Minfeng</given-names></name>
+        <name><surname>Gurwell</surname><given-names>Mark</given-names></name>
+        <name><surname>Hada</surname><given-names>Kazuhiro</given-names></name>
+        <name><surname>Haggard</surname><given-names>Daryl</given-names></name>
+        <name><surname>Haworth</surname><given-names>Kari</given-names></name>
+        <name><surname>Hecht</surname><given-names>Michael H.</given-names></name>
+        <name><surname>Hesper</surname><given-names>Ronald</given-names></name>
+        <name><surname>Heumann</surname><given-names>Dirk</given-names></name>
+        <name><surname>Ho</surname><given-names>Luis C.</given-names></name>
+        <name><surname>Ho</surname><given-names>Paul</given-names></name>
+        <name><surname>Honma</surname><given-names>Mareki</given-names></name>
+        <name><surname>Huang</surname><given-names>Chih-Wei L.</given-names></name>
+        <name><surname>Huang</surname><given-names>Lei</given-names></name>
+        <name><surname>Hughes</surname><given-names>David H.</given-names></name>
+        <name><surname>Ikeda</surname><given-names>Shiro</given-names></name>
+        <name><surname>Impellizzeri</surname><given-names>C. M. Violette</given-names></name>
+        <name><surname>Inoue</surname><given-names>Makoto</given-names></name>
+        <name><surname>Issaoun</surname><given-names>Sara</given-names></name>
+        <name><surname>James</surname><given-names>David J.</given-names></name>
+        <name><surname>Jannuzi</surname><given-names>Buell T.</given-names></name>
+        <name><surname>Janssen</surname><given-names>Michael</given-names></name>
+        <name><surname>Jeter</surname><given-names>Britton</given-names></name>
+        <name><surname>Jiang</surname><given-names>Wu</given-names></name>
+        <name><surname>Jiménez-Rosales</surname><given-names>Alejandra</given-names></name>
+        <name><surname>Johnson</surname><given-names>Michael D.</given-names></name>
+        <name><surname>Jorstad</surname><given-names>Svetlana</given-names></name>
+        <name><surname>Joshi</surname><given-names>Abhishek V.</given-names></name>
+        <name><surname>Jung</surname><given-names>Taehyun</given-names></name>
+        <name><surname>Karami</surname><given-names>Mansour</given-names></name>
+        <name><surname>Karuppusamy</surname><given-names>Ramesh</given-names></name>
+        <name><surname>Kawashima</surname><given-names>Tomohisa</given-names></name>
+        <name><surname>Keating</surname><given-names>Garrett K.</given-names></name>
+        <name><surname>Kettenis</surname><given-names>Mark</given-names></name>
+        <name><surname>Kim</surname><given-names>Dong-Jin</given-names></name>
+        <name><surname>Kim</surname><given-names>Jae-Young</given-names></name>
+        <name><surname>Kim</surname><given-names>Jongsoo</given-names></name>
+        <name><surname>Kim</surname><given-names>Junhan</given-names></name>
+        <name><surname>Kino</surname><given-names>Motoki</given-names></name>
+        <name><surname>Koay</surname><given-names>Jun Yi</given-names></name>
+        <name><surname>Kocherlakota</surname><given-names>Prashant</given-names></name>
+        <name><surname>Kofuji</surname><given-names>Yutaro</given-names></name>
+        <name><surname>Koch</surname><given-names>Patrick M.</given-names></name>
+        <name><surname>Koyama</surname><given-names>Shoko</given-names></name>
+        <name><surname>Kramer</surname><given-names>Carsten</given-names></name>
+        <name><surname>Kramer</surname><given-names>Michael</given-names></name>
+        <name><surname>Krichbaum</surname><given-names>Thomas P.</given-names></name>
+        <name><surname>Kuo</surname><given-names>Cheng-Yu</given-names></name>
+        <name><surname>Bella</surname><given-names>Noemi La</given-names></name>
+        <name><surname>Lauer</surname><given-names>Tod R.</given-names></name>
+        <name><surname>Lee</surname><given-names>Daeyoung</given-names></name>
+        <name><surname>Lee</surname><given-names>Sang-Sung</given-names></name>
+        <name><surname>Leung</surname><given-names>Po Kin</given-names></name>
+        <name><surname>Levis</surname><given-names>Aviad</given-names></name>
+        <name><surname>Li</surname><given-names>Zhiyuan</given-names></name>
+        <name><surname>Lico</surname><given-names>Rocco</given-names></name>
+        <name><surname>Lindahl</surname><given-names>Greg</given-names></name>
+        <name><surname>Lindqvist</surname><given-names>Michael</given-names></name>
+        <name><surname>Lisakov</surname><given-names>Mikhail</given-names></name>
+        <name><surname>Liu</surname><given-names>Jun</given-names></name>
+        <name><surname>Liu</surname><given-names>Kuo</given-names></name>
+        <name><surname>Liuzzo</surname><given-names>Elisabetta</given-names></name>
+        <name><surname>Lo</surname><given-names>Wen-Ping</given-names></name>
+        <name><surname>Lobanov</surname><given-names>Andrei P.</given-names></name>
+        <name><surname>Loinard</surname><given-names>Laurent</given-names></name>
+        <name><surname>Lonsdale</surname><given-names>Colin J.</given-names></name>
+        <name><surname>Lu</surname><given-names>Ru-Sen</given-names></name>
+        <name><surname>Mao</surname><given-names>Jirong</given-names></name>
+        <name><surname>Marchili</surname><given-names>Nicola</given-names></name>
+        <name><surname>Markoff</surname><given-names>Sera</given-names></name>
+        <name><surname>Marrone</surname><given-names>Daniel P.</given-names></name>
+        <name><surname>Marscher</surname><given-names>Alan P.</given-names></name>
+        <name><surname>Martí-Vidal</surname><given-names>Iván</given-names></name>
+        <name><surname>Matsushita</surname><given-names>Satoki</given-names></name>
+        <name><surname>Matthews</surname><given-names>Lynn D.</given-names></name>
+        <name><surname>Medeiros</surname><given-names>Lia</given-names></name>
+        <name><surname>Menten</surname><given-names>Karl M.</given-names></name>
+        <name><surname>Michalik</surname><given-names>Daniel</given-names></name>
+        <name><surname>Mizuno</surname><given-names>Izumi</given-names></name>
+        <name><surname>Mizuno</surname><given-names>Yosuke</given-names></name>
+        <name><surname>Moran</surname><given-names>James M.</given-names></name>
+        <name><surname>Moriyama</surname><given-names>Kotaro</given-names></name>
+        <name><surname>Moscibrodzka</surname><given-names>Monika</given-names></name>
+        <name><surname>Müller</surname><given-names>Cornelia</given-names></name>
+        <name><surname>Mus</surname><given-names>Alejandro</given-names></name>
+        <name><surname>Musoke</surname><given-names>Gibwa</given-names></name>
+        <name><surname>Myserlis</surname><given-names>Ioannis</given-names></name>
+        <name><surname>Nadolski</surname><given-names>Andrew</given-names></name>
+        <name><surname>Nagai</surname><given-names>Hiroshi</given-names></name>
+        <name><surname>Nagar</surname><given-names>Neil M.</given-names></name>
+        <name><surname>Nakamura</surname><given-names>Masanori</given-names></name>
+        <name><surname>Narayan</surname><given-names>Ramesh</given-names></name>
+        <name><surname>Narayanan</surname><given-names>Gopal</given-names></name>
+        <name><surname>Natarajan</surname><given-names>Iniyan</given-names></name>
+        <name><surname>Nathanail</surname><given-names>Antonios</given-names></name>
+        <name><surname>Fuentes</surname><given-names>Santiago Navarro</given-names></name>
+        <name><surname>Neilsen</surname><given-names>Joey</given-names></name>
+        <name><surname>Neri</surname><given-names>Roberto</given-names></name>
+        <name><surname>Ni</surname><given-names>Chunchong</given-names></name>
+        <name><surname>Noutsos</surname><given-names>Aristeidis</given-names></name>
+        <name><surname>Nowak</surname><given-names>Michael A.</given-names></name>
+        <name><surname>Oh</surname><given-names>Junghwan</given-names></name>
+        <name><surname>Okino</surname><given-names>Hiroki</given-names></name>
+        <name><surname>Olivares</surname><given-names>Héctor</given-names></name>
+        <name><surname>Ortiz-León</surname><given-names>Gisela N.</given-names></name>
+        <name><surname>Oyama</surname><given-names>Tomoaki</given-names></name>
+        <name><surname>Özel</surname><given-names>Feryal</given-names></name>
+        <name><surname>Palumbo</surname><given-names>Daniel C. M.</given-names></name>
+        <name><surname>Paraschos</surname><given-names>Georgios Filippos</given-names></name>
+        <name><surname>Park</surname><given-names>Jongho</given-names></name>
+        <name><surname>Parsons</surname><given-names>Harriet</given-names></name>
+        <name><surname>Patel</surname><given-names>Nimesh</given-names></name>
+        <name><surname>Pen</surname><given-names>Ue-Li</given-names></name>
+        <name><surname>Pesce</surname><given-names>Dominic W.</given-names></name>
+        <name><surname>Piétu</surname><given-names>Vincent</given-names></name>
+        <name><surname>Plambeck</surname><given-names>Richard</given-names></name>
+        <name><surname>PopStefanija</surname><given-names>Aleksandar</given-names></name>
+        <name><surname>Porth</surname><given-names>Oliver</given-names></name>
+        <name><surname>Pötzl</surname><given-names>Felix M.</given-names></name>
+        <name><surname>Prather</surname><given-names>Ben</given-names></name>
+        <name><surname>Preciado-López</surname><given-names>Jorge A.</given-names></name>
+        <name><surname>Psaltis</surname><given-names>Dimitrios</given-names></name>
+        <name><surname>Pu</surname><given-names>Hung-Yi</given-names></name>
+        <name><surname>Ramakrishnan</surname><given-names>Venkatessh</given-names></name>
+        <name><surname>Rao</surname><given-names>Ramprasad</given-names></name>
+        <name><surname>Rawlings</surname><given-names>Mark G.</given-names></name>
+        <name><surname>Raymond</surname><given-names>Alexander W.</given-names></name>
+        <name><surname>Rezzolla</surname><given-names>Luciano</given-names></name>
+        <name><surname>Ricarte</surname><given-names>Angelo</given-names></name>
+        <name><surname>Ripperda</surname><given-names>Bart</given-names></name>
+        <name><surname>Roelofs</surname><given-names>Freek</given-names></name>
+        <name><surname>Rogers</surname><given-names>Alan</given-names></name>
+        <name><surname>Ros</surname><given-names>Eduardo</given-names></name>
+        <name><surname>Romero-Cañizales</surname><given-names>Cristina</given-names></name>
+        <name><surname>Roshanineshat</surname><given-names>Arash</given-names></name>
+        <name><surname>Rottmann</surname><given-names>Helge</given-names></name>
+        <name><surname>Roy</surname><given-names>Alan L.</given-names></name>
+        <name><surname>Ruiz</surname><given-names>Ignacio</given-names></name>
+        <name><surname>Ruszczyk</surname><given-names>Chet</given-names></name>
+        <name><surname>Rygl</surname><given-names>Kazi L. J.</given-names></name>
+        <name><surname>Sánchez</surname><given-names>Salvador</given-names></name>
+        <name><surname>Sánchez-Argüelles</surname><given-names>David</given-names></name>
+        <name><surname>Sánchez-Portal</surname><given-names>Miguel</given-names></name>
+        <name><surname>Sasada</surname><given-names>Mahito</given-names></name>
+        <name><surname>Satapathy</surname><given-names>Kaushik</given-names></name>
+        <name><surname>Savolainen</surname><given-names>Tuomas</given-names></name>
+        <name><surname>Schloerb</surname><given-names>F. Peter</given-names></name>
+        <name><surname>Schonfeld</surname><given-names>Jonathan</given-names></name>
+        <name><surname>Schuster</surname><given-names>Karl-Friedrich</given-names></name>
+        <name><surname>Shao</surname><given-names>Lijing</given-names></name>
+        <name><surname>Shen</surname><given-names>Zhiqiang</given-names></name>
+        <name><surname>Small</surname><given-names>Des</given-names></name>
+        <name><surname>Sohn</surname><given-names>Bong Won</given-names></name>
+        <name><surname>SooHoo</surname><given-names>Jason</given-names></name>
+        <name><surname>Souccar</surname><given-names>Kamal</given-names></name>
+        <name><surname>Sun</surname><given-names>He</given-names></name>
+        <name><surname>Tazaki</surname><given-names>Fumie</given-names></name>
+        <name><surname>Tetarenko</surname><given-names>Alexandra J.</given-names></name>
+        <name><surname>Tiede</surname><given-names>Paul</given-names></name>
+        <name><surname>Tilanus</surname><given-names>Remo P. J.</given-names></name>
+        <name><surname>Titus</surname><given-names>Michael</given-names></name>
+        <name><surname>Torne</surname><given-names>Pablo</given-names></name>
+        <name><surname>Traianou</surname><given-names>Efthalia</given-names></name>
+        <name><surname>Trent</surname><given-names>Tyler</given-names></name>
+        <name><surname>Trippe</surname><given-names>Sascha</given-names></name>
+        <name><surname>Turk</surname><given-names>Matthew</given-names></name>
+        <name><surname>Bemmel</surname><given-names>Ilse van</given-names></name>
+        <name><surname>Langevelde</surname><given-names>Huib Jan van</given-names></name>
+        <name><surname>Rossum</surname><given-names>Daniel R. van</given-names></name>
+        <name><surname>Vos</surname><given-names>Jesse</given-names></name>
+        <name><surname>Wagner</surname><given-names>Jan</given-names></name>
+        <name><surname>Ward-Thompson</surname><given-names>Derek</given-names></name>
+        <name><surname>Wardle</surname><given-names>John</given-names></name>
+        <name><surname>Weintroub</surname><given-names>Jonathan</given-names></name>
+        <name><surname>Wex</surname><given-names>Norbert</given-names></name>
+        <name><surname>Wharton</surname><given-names>Robert</given-names></name>
+        <name><surname>Wielgus</surname><given-names>Maciek</given-names></name>
+        <name><surname>Wiik</surname><given-names>Kaj</given-names></name>
+        <name><surname>Witzel</surname><given-names>Gunther</given-names></name>
+        <name><surname>Wondrak</surname><given-names>Michael F.</given-names></name>
+        <name><surname>Wong</surname><given-names>George N.</given-names></name>
+        <name><surname>Wu</surname><given-names>Qingwen</given-names></name>
+        <name><surname>Yamaguchi</surname><given-names>Paul</given-names></name>
+        <name><surname>Yoon</surname><given-names>Doosoo</given-names></name>
+        <name><surname>Young</surname><given-names>André</given-names></name>
+        <name><surname>Young</surname><given-names>Ken</given-names></name>
+        <name><surname>Younsi</surname><given-names>Ziri</given-names></name>
+        <name><surname>Yuan</surname><given-names>Feng</given-names></name>
+        <name><surname>Yuan</surname><given-names>Ye-Fei</given-names></name>
+        <name><surname>Zensus</surname><given-names>J. Anton</given-names></name>
+        <name><surname>Zhang</surname><given-names>Shuo</given-names></name>
+        <name><surname>Zhao</surname><given-names>Guang-Yao</given-names></name>
+        <name><surname>Zhao</surname><given-names>Shan-Shan</given-names></name>
+        <name><surname>Chan</surname><given-names>Tin Lok</given-names></name>
+        <name><surname>Qiu</surname><given-names>Richard</given-names></name>
+        <name><surname>Ressler</surname><given-names>Sean</given-names></name>
+        <name><surname>White</surname><given-names>Chris</given-names></name>
+      </person-group>
+      <article-title>First Sagittarius A* Event Horizon Telescope Results. V. Testing Astrophysical Models of the Galactic Center Black Hole</article-title>
+      <source>The Astrophysical Journal Letters</source>
+      <publisher-name>IOP Publishing</publisher-name>
+      <year iso-8601-date="2022-05">2022</year><month>05</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2022-05-29">2022</year><month>05</month><day>29</day></date-in-citation>
+      <volume>930</volume>
+      <issue>2</issue>
+      <issn>2041-8205</issn>
+      <pub-id pub-id-type="doi">10.3847/2041-8213/ac6672</pub-id>
+      <fpage>L16</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-kuibitPaper">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Bozzola</surname><given-names>Gabriele</given-names></name>
+      </person-group>
+      <article-title>Kuibit: Analyzing Einstein Toolkit simulations with Python</article-title>
+      <source>Journal of Open Source Software</source>
+      <year iso-8601-date="2021-04">2021</year><month>04</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
+      <volume>6</volume>
+      <issue>60</issue>
+      <issn>2475-9066</issn>
+      <pub-id pub-id-type="doi">10.21105/joss.03099</pub-id>
+      <fpage>3099</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-paraviewPaper">
+    <element-citation publication-type="chapter">
+      <person-group person-group-type="author">
+        <name><surname>Ahrens</surname><given-names>James</given-names></name>
+        <name><surname>Geveci</surname><given-names>Berk</given-names></name>
+        <name><surname>Law</surname><given-names>Charles</given-names></name>
+      </person-group>
+      <article-title>ParaView: An End-User Tool for Large-Data Visualization</article-title>
+      <source>Visualization Handbook</source>
+      <publisher-name>Elsevier</publisher-name>
+      <year iso-8601-date="2005">2005</year>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
+      <isbn>978-0-12-387582-2</isbn>
+      <pub-id pub-id-type="doi">10.1016/B978-012387582-2/50038-1</pub-id>
+      <fpage>717</fpage>
+      <lpage>731</lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-Prather2025">
+    <element-citation publication-type="chapter">
+      <person-group person-group-type="author">
+        <name><surname>Prather</surname><given-names>Cora</given-names></name>
+      </person-group>
+      <article-title>KHARMA: Flexible, Portable Performance for GRMHD</article-title>
+      <source>New Frontiers in GRMHD Simulations</source>
+      <person-group person-group-type="editor">
+        <name><surname>Bambi</surname><given-names>Cosimo</given-names></name>
+        <name><surname>Mizuno</surname><given-names>Yosuke</given-names></name>
+        <name><surname>Shashank</surname><given-names>Swarnim</given-names></name>
+        <name><surname>Yuan</surname><given-names>Feng</given-names></name>
+      </person-group>
+      <publisher-name>Springer Nature Singapore</publisher-name>
+      <publisher-loc>Singapore</publisher-loc>
+      <year iso-8601-date="2025">2025</year>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-04-06">2026</year><month>04</month><day>06</day></date-in-citation>
+      <isbn>978-981-97-8522-3</isbn>
+      <pub-id pub-id-type="doi">10.1007/978-981-97-8522-3_5</pub-id>
+      <fpage>167</fpage>
+      <lpage>201</lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-rogowskiMpi4pyfuturesMPIBasedAsynchronous2023">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Rogowski</surname><given-names>Marcin</given-names></name>
+        <name><surname>Aseeri</surname><given-names>Samar</given-names></name>
+        <name><surname>Keyes</surname><given-names>David</given-names></name>
+        <name><surname>Dalcin</surname><given-names>Lisandro</given-names></name>
+      </person-group>
+      <article-title>Mpi4py.futures: MPI-Based Asynchronous Task Execution for Python</article-title>
+      <source>IEEE Transactions on Parallel and Distributed Systems</source>
+      <year iso-8601-date="2023-02">2023</year><month>02</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
+      <volume>34</volume>
+      <issue>2</issue>
+      <issn>1558-2183</issn>
+      <pub-id pub-id-type="doi">10.1109/TPDS.2022.3225481</pub-id>
+      <fpage>611</fpage>
+      <lpage>622</lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-stanway2026">
+    <element-citation>
+      <person-group person-group-type="author">
+        <name><surname>Stanway</surname><given-names>Joshua Samuel</given-names></name>
+        <name><surname>Prather</surname><given-names>Cora</given-names></name>
+        <name><surname>Ward-Thompson</surname><given-names>Derek</given-names></name>
+        <name><surname>Walton</surname><given-names>Timothy J.</given-names></name>
+        <name><surname>Patterson</surname><given-names>Brett</given-names></name>
+        <name><surname>Cho</surname><given-names>Hyerin</given-names></name>
+      </person-group>
+      <article-title>Supermassive Black Holes: Modelling strongly and weakly magnetised misaligned accretion disks</article-title>
+      <publisher-name>arXiv</publisher-name>
+      <year iso-8601-date="2026-05">2026</year><month>05</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
+      <uri>https://arxiv.org/abs/2605.27334</uri>
+      <pub-id pub-id-type="doi">10.48550/arXiv.2605.27334</pub-id>
+    </element-citation>
+  </ref>
+  <ref id="ref-visitPaper">
+    <element-citation publication-type="book">
+      <source>High Performance Visualization: Enabling Extreme-Scale Scientific Insight</source>
+      <person-group person-group-type="editor">
+        <name><surname>Bethel</surname><given-names>E. Wes</given-names></name>
+        <name><surname>Childs</surname><given-names>Hank</given-names></name>
+        <name><surname>Hansen</surname><given-names>Charles</given-names></name>
+      </person-group>
+      <publisher-name>Chapman and Hall/CRC</publisher-name>
+      <year iso-8601-date="2012-10">2012</year><month>10</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
+      <edition>0</edition>
+      <isbn>978-0-429-10535-7</isbn>
+      <pub-id pub-id-type="doi">10.1201/b12985</pub-id>
+    </element-citation>
+  </ref>
+  <ref id="ref-ytPaper">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Turk</surname><given-names>Matthew J.</given-names></name>
+        <name><surname>Smith</surname><given-names>Britton D.</given-names></name>
+        <name><surname>Oishi</surname><given-names>Jeffrey S.</given-names></name>
+        <name><surname>Skory</surname><given-names>Stephen</given-names></name>
+        <name><surname>Skillman</surname><given-names>Samuel W.</given-names></name>
+        <name><surname>Abel</surname><given-names>Tom</given-names></name>
+        <name><surname>Norman</surname><given-names>Michael L.</given-names></name>
+      </person-group>
+      <article-title>Yt: A MULTI-CODE ANALYSIS TOOLKIT FOR ASTROPHYSICAL SIMULATION DATA</article-title>
+      <source>The Astrophysical Journal Supplement Series</source>
+      <publisher-name>The American Astronomical Society</publisher-name>
+      <year iso-8601-date="2010-12">2010</year><month>12</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
+      <volume>192</volume>
+      <issue>1</issue>
+      <issn>0067-0049</issn>
+      <pub-id pub-id-type="doi">10.1088/0067-0049/192/1/9</pub-id>
+      <fpage>9</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+</ref-list>
+</back>
+</article>
