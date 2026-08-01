@@ -2,8 +2,10 @@
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
-if [[ $1 == "prompt" ]]; then
+if [[ $1 == "prompt" || $1 == "shell" || $1 == "terminal" || $1 == "session" ]]; then
   exec python -m pyharm ${@:2}
+elif [[ $1 == "ana" ]]; then
+  exec ${SCRIPT_DIR}/pyharm-analysis ${@:2}
 elif [[ $1 == "-h" || $1 == "--help" ]]; then
   echo "Available sub-commands:"
   echo

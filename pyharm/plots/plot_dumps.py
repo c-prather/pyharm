@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,7 @@ For full figures with default annotations, variable choices, etc, see ``figures.
 
 def _decorate_plot(ax, dump, var, bh=True, xticks=None, yticks=None, frame=True,
                   cbar=True, cbar_ticks=None, cbar_label=None,
-                  label=None, log_r=False, **kwargs):
+                  label=None, no_title=False, log_r=False, **kwargs):
     """Add any extras to plots which are not dependent on data or slicing.
     Accepts arbitrary extra arguments for compatibility -- they are passed nowhere.
     
@@ -91,10 +91,11 @@ def _decorate_plot(ax, dump, var, bh=True, xticks=None, yticks=None, frame=True,
         # What does this do? It looks scary
         # fig.patch.set_visible(False)
 
-    if label is not None:
-        ax.set_title(label)
-    elif isinstance(var, str):
-        ax.set_title(pretty(var))
+    if not no_title:
+        if label is not None:
+            ax.set_title(label)
+        elif isinstance(var, str):
+            ax.set_title(pretty(var))
 
 def plot_xz(ax, dump, var, vmin=None, vmax=None, window=(-40, 40, -40, 40),
             xlabel=True, ylabel=True, native=False, log=False,
@@ -126,7 +127,8 @@ def plot_xz(ax, dump, var, vmin=None, vmax=None, window=(-40, 40, -40, 40),
     var = flatten_xz(dump, var, at, sum or average, half_cut or native)
     if average:
         var /= dump['n3']
-    if shading != 'flat':
+    # Wrap spherical coordinates to avoid slivers at poles
+    if shading != 'flat' and not native:
         x = wrap(x)
         z = wrap(z)
         var = wrap(var)
@@ -176,6 +178,12 @@ def plot_xz(ax, dump, var, vmin=None, vmax=None, window=(-40, 40, -40, 40),
             ax.set_xlim(window[:2])
             ax.set_ylim(window[2:])
         # TODO alt option of size -r_out to r_out?
+    
+    # If user passed strings, prefer those actually
+    if xlabel and not isinstance(xlabel, (bool,int)):
+        ax.set_xlabel(xlabel)
+    if ylabel and not isinstance(ylabel, (bool,int)):
+        ax.set_ylabel(ylabel)
 
     if not native:
         ax.set_aspect('equal')

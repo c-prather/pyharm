@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -108,13 +108,6 @@ def smoothed(a, window_sz=101):
     ret = np.append(ret, np.array([np.mean(a[-n-window_sz//2:]) for n in range(1,window_sz//2+1)]))
     return ret
 
-def _get_mdot(diag):
-    try:
-        # Get mass flux at r=5 to avoid floor effects
-        return np.abs(diag.get_dvar('rt','FM_disk')[:, i_of(diag['r'], 5)])
-    except IOError:
-        return np.abs(diag['Mdot'])
-
 class AnaResults(object):
     """Tools for dealing with the results computed by scripts/pyharm-analysis.
 
@@ -144,33 +137,42 @@ class AnaResults(object):
 
     diag_fn_common = {# Standard names for some EH fluxes
                     'phi_b_per': lambda diag: diag['Phi_b'] / np.sqrt(diag['mdot']),
-                    'phi_b': lambda diag: diag['Phi_b'] / np.sqrt(diag['smooth_mdot']),
-                    'phi_b_upper': lambda diag: diag['Phi_b_upper'] / np.sqrt(diag['smooth_mdot']),
-                    'phi_b_lower': lambda diag: diag['Phi_b_lower'] / np.sqrt(diag['smooth_mdot']),
+                    'phi_b': lambda diag: diag['Phi_b'] / np.sqrt(diag['avg_mdot']),
+                    'phi_b_upper': lambda diag: diag['Phi_b_upper'] / np.sqrt(diag['avg_mdot']),
+                    'phi_b_lower': lambda diag: diag['Phi_b_lower'] / np.sqrt(diag['avg_mdot']),
                     'phi_b_per_gauss': lambda diag: diag['Phi_b'] / np.sqrt(diag['mdot']),
-                    'phi_b_gauss': lambda diag: diag['Phi_b'] / np.sqrt(diag['smooth_mdot']),
-                    'phi_b_upper_gauss': lambda diag: diag['Phi_b_upper'] / np.sqrt(diag['smooth_mdot']),
-                    'phi_b_lower_gauss': lambda diag: diag['Phi_b_lower'] / np.sqrt(diag['smooth_mdot']),
-                    'edot_per': lambda diag: diag['Edot'] / diag['mdot'],
-                    'edot': lambda diag: diag['Edot'] / diag['smooth_mdot'],
-                    'ldot_per': lambda diag: diag['Ldot'] / diag['mdot'],
-                    'ldot': lambda diag: diag['Ldot'] / diag['smooth_mdot'],
-                    'spinup': lambda diag: -(diag['Ldot'] + 2*diag.params['a']*diag['Edot']) / diag['smooth_mdot'],
+                    'phi_b_gauss': lambda diag: diag['Phi_b'] / np.sqrt(diag['avg_mdot']),
+                    'phi_b_upper_gauss': lambda diag: diag['Phi_b_upper'] / np.sqrt(diag['avg_mdot']),
+                    'phi_b_lower_gauss': lambda diag: diag['Phi_b_lower'] / np.sqrt(diag['avg_mdot']),
+                    'edot_per': lambda diag: diag['Edot_5'] / diag['mdot'],
+                    'edot': lambda diag: diag['Edot_5'] / diag['avg_mdot'],
+                    'ldot_per': lambda diag: diag['Ldot_5'] / diag['mdot'],
+                    'ldot': lambda diag: diag['Ldot_5'] / diag['avg_mdot'],
+                    'spinup': lambda diag: -(diag['Ldot_5'] + 2*diag.params['a']*diag['Edot_5']) / diag['avg_mdot'],
                     # Post-processing functions for fluxes
-                    'eff': lambda diag: np.abs(diag['Edot'] - diag['mdot']) / diag['smooth_mdot'],
-                    'eff_per': lambda diag: np.abs(diag['Edot'] - diag['mdot']) / diag['mdot'],
+                    'eff': lambda diag: np.abs(diag['Edot_5'] - diag['mdot']) / diag['avg_mdot'],
+                    'eff_per': lambda diag: np.abs(diag['Edot_5'] - diag['mdot']) / diag['mdot'],
+                    'eff_eh': lambda diag: np.abs(diag['Edot'] - diag['mdot']) / diag['avg_mdot'],
+                    'eff_eh_per': lambda diag: np.abs(diag['Edot'] - diag['mdot']) / diag['mdot'],
+                    'eff_jet50': lambda diag: np.abs(diag['rt/P_jet'][:,i_of(diag['r'], 50.)] - diag['rt/Mdot_jet'][:,i_of(diag['r'], 50.)]) / diag['avg_mdot'],
+                    'eff_jet50_per': lambda diag: np.abs(diag['rt/P_jet'][:,i_of(diag['r'], 50.)] - diag['rt/Mdot_jet'][:,i_of(diag['r'], 50.)]) / diag['mdot'],
                     }
     # How to load variables from a KHARMA .hst file dictionary
-    diags_hst = {'mdot': lambda diag: np.abs(diag['Mdot_EH_Flux']),
-                 'Phi_b': lambda diag: diag['Phi_EH'],
-                 'Edot': lambda diag: diag['Edot_EH'],
-                 'Ldot': lambda diag: diag['Ldot_EH']}
+    diags_hst = {'mdot': lambda diag: np.abs(diag['Mdot_5M']),
+                 'Phi_b': lambda diag: diag['Phi_5M'],
+                 'Edot': lambda diag: diag['Edot_5M'],
+                 'Ldot': lambda diag: diag['Ldot_5M'],
+                 }
     # How to load from analysis results
-    diags_ana = {'mdot': lambda diag: _get_mdot(diag),
+    diags_ana = {'mdot': lambda diag: diag['Mdot_5'],
                 }
 
-    def __init__(self, fname, tag=""):
-        self.tag = tag
+    def __init__(self, fname, tag=None):
+        if tag is not None:
+            self.tag = tag
+        else:
+            # If there's no explicit tag, use our folder's name
+            self.tag = os.path.basename(os.path.dirname(os.path.realpath(fname)))
         self.cache = {}
         if isinstance(fname, str):
             # When reading HDF5 files, just open the file
@@ -185,13 +187,15 @@ class AnaResults(object):
                 self.grid = Grid(self.params)
                 if 'avg/start' in self.file: 
                     self.avg_ends = (self.file['avg/start'][()], self.file['avg/end'][()])
-            else:
+            elif ".hst" in fname:
                 # Read diagnostic output.  Much more limited functionality here,
                 # mostly for applying diag_fns
                 self.file = read_log(fname)
                 self.diag_fns = {**self.diag_fn_common, **self.diags_hst}
                 self.ftype = "hst"
                 self.params = {}
+            else:
+                raise IOError("Could not find result file!")
         else:
             # Build an object around existing data dict, passed as "fname"
             self.fname = ""
@@ -202,7 +206,8 @@ class AnaResults(object):
             
 
     def __del__(self):
-        if 'file' in self.__dict__ and not isinstance(self.file, dict):
+        # TODO test this more elegantly
+        if 'file' in self.__dict__ and not (isinstance(self.file, dict) or isinstance(self.file, list)):
             self.file.close()
 
     def __getitem__(self, key):
@@ -337,7 +342,7 @@ class AnaResults(object):
                     ret_i.append(G.coords.phi(native_coords[:, 0, 0, :]))
 
             ret_grids = np.meshgrid(*reversed(ret_i))
-            ret_grids.reverse()
+            ret_grids = tuple(reversed(ret_grids))
 
         if th_r is None and mesh == True:
             self.cache[ivar] = ret_grids
@@ -394,6 +399,12 @@ class AnaResults(object):
                 # Default
                 window = 101
             ret_v = smoothed(self.get_dvar(ivar, '_'.join(dvarl[1:])), window_sz=window)
+        elif dvar[:4] == "avg_":
+            dvals = self.get_dvar(ivar, dvar[4:])
+            ret_v = np.mean(dvals[dvals.shape[0]//2:]) * np.ones_like(dvals)
+        elif dvar[:7] == "avgall_":
+            dvals = self.get_dvar(ivar, dvar[7:])
+            ret_v = np.mean(dvals) * np.ones_like(dvals)
         elif 'sigma_post' in dvar:
             ret_v = (self.get_dvar(ivar, dvar.replace('sigma_post','bsq')) /
                     self.get_dvar(ivar, dvar.replace('sigma_post','rho')))
@@ -439,18 +450,19 @@ class AnaResults(object):
                 keylist.append(ivar+"/"+dvar)
         return keylist
     
-    def get_time_slice(self, tmin, tmax=0):
+    def get_time_slice(self, tmin, tmax=None):
         """Get the indices in the (correct, potentially reordered) timeline
         corresponding to stated tmin, tmax.
         Allows negative tmin to specify a slice to the end of the run
         """
-        tmin = float(tmin)
-        tmax = float(tmax)
-        if tmin > 0 and tmax > 0:
+        if tmax is not None:
             i_begin = i_of(self['t'], tmin)
             i_end = i_of(self['t'], tmax)
         elif tmin < 0:
             i_begin = i_of(self['t'], self['t'][-1] + tmin)
+            i_end = None
+        else:
+            i_begin = i_of(self['t'], tmin)
             i_end = None
 
         return slice(i_begin, i_end)

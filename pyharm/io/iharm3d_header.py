@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@ header_keys_electrons = ['cour', 'gam', 'tf', 'fel0', 'gam_e', 'gam_p', 'tptemax
 # Keys in header/geom
 geom_keys = ['dx1', 'dx2', 'dx3', 'startx1', 'startx2', 'startx3', 'n_dim']
 # Keys in potential geom/mks
+eks_keys = ['r_eh', 'r_in', 'r_out', 'a']
 mks_keys = ['r_eh', 'r_in', 'r_out', 'a', 'hslope']
 mmks_keys = ['poly_alpha', 'poly_xt']
 fmks_keys = ['mks_smooth', 'poly_alpha', 'poly_xt']
@@ -102,6 +103,8 @@ def write_hdr(params, outf, amr_level=0):
     if params_write['coordinates'] in ["cartesian", "minkowski"]:
         # No special geometry to record
         pass
+    elif params_write['coordinates'] == "eks":
+        _write_param_grp(params_write, eks_keys, 'eks', outf['header/geom'])
     elif params_write['coordinates'] == "mks":
         _write_param_grp(params_write, mks_keys, 'mks', outf['header/geom'])
     elif params_write['coordinates'] == "fmks":
@@ -158,6 +161,21 @@ def read_hdr(grp):
             else:
                 for sub_key in geom[key]:
                     params[sub_key] = geom[key+'/'+sub_key][()]
+
+        # Try to parse the iharm3d header
+        # Eventually MMKS meant something different, but in v1 library
+        # it is what we now call FMKS
+        if 'eks' in geom:
+            params['base'] = 'spherical_ks'
+            params['transform'] = 'eks'
+        elif 'mks' in geom:
+            params['base'] = 'spherical_ks'
+            params['transform'] = 'mks'
+        elif 'fmks' in geom or 'mmks' in geom:
+            params['base'] = 'spherical_ks'
+            params['transform'] = 'fmks'
+        else:
+            raise KeyError
 
     except KeyError as e:
         print("Warning: {}".format(e))
@@ -244,6 +262,9 @@ def dict_to_hdf5(wdict, h5grp):
     """Write nested dictionaries of Python values to HDF5 groups nested within the group/file h5grp
     If a filename is specified, automatically opens/closes the file.
     """
+    if wdict is None:
+        return
+
     do_close = False
     if isinstance(h5grp, str):
         h5grp = h5py.File(h5grp, "r")

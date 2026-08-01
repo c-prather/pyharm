@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -108,6 +108,11 @@ class FloorFlag_KHARMA(Enum):
     #  the flags aren't written
     HIT_FLOOR_GEOM_RHO_FLUX = 4096
     HIT_FLOOR_GEOM_U_FLUX = 8192
+    # Yet more flags for floors hit during inversion
+    HIT_FLOOR_INVERTER_RHO = 16384
+    HIT_FLOOR_INVERTER_U = 32768
+    HIT_FLOOR_INVERTER_GAMMA = 65536
+    HIT_FLOOR_INVERTER_U_MAX = 131072
 
 class Slices:
     """Object to hold a bunch of named slices.

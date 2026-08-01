@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -37,13 +37,14 @@ from glob import glob
 import itertools
 import numpy as np
 import h5py
+import tarfile
 
 # TODO not sure this is how I want names
 from . import iharm3d
 from .iharm3d import Iharm3DFile
 from .iharm3d_restart import Iharm3DRestart
 from . import kharma
-from .kharma import KHARMAFile
+from .kharma import KHARMAFile, KHARMATarFile
 from .harm2d import HARM2DFile
 from .hamr import HAMRFile
 from .koral import KORALFile
@@ -62,6 +63,11 @@ def get_fnames(path, prefer_iharm3d=False):
     """Return what should be the list of fluid dump files in a directory 'path',
     while trying to avoid extraneous files caught in normal globs (e.g., grid.h5, other runs/filetypes)
     """
+    # If we pass a tar archive, we mean everything inside it
+    # TODO multiple tar archives?
+    if ".tar" in path:
+        tf = tarfile.open(path)
+        return tuple([(path, member) for member in tf.getmembers()])
     # These are at best a touchy heuristic
     # The idea is to prefer a KHARMA subdir, then iharm3d subdir, then try the current dir;
     # within the subdir, we prefer Parthenon strict-formatted filenames, then adjacent things, then iharm3d filenames,
@@ -69,8 +75,8 @@ def get_fnames(path, prefer_iharm3d=False):
     # We specifically exclude anything named grid.h5 and eht_out.h5, as well as other possible .h5 analysis files
     # We also exclude named parthenon output like KHARMA's *final.{phdf,rhdf}; these are valid files, but out of cadence
     folders = ("dumps_kharma", "dumps", ".")
-    fnames = ("*.out0.[0-9][0-9][0-9][0-9][0-9]", "*.out[0-9].[0-9][0-9][0-9][0-9][0-9]", "dump_*", "dump[0-9][0-9][0-9]")
-    exts = (".phdf", ".h5", ".rhdf", "")
+    fnames = ("*.out0.[0-9][0-9][0-9][0-9][0-9]", "*.out[1-9].[0-9][0-9][0-9][0-9][0-9]", "dump_*", "dump[0-9][0-9][0-9]", "*.out0.[0-9][0-9]k", "*.out0.[0-9][0-9][0-9]h")
+    exts = (".phdf", ".h5", ".rhdf", "", ".tar")
     if prefer_iharm3d:
         # Just prefer a "dumps" folder over "dumps_kharma."
         folders = ("dumps", "dumps_kharma", ".")
@@ -78,11 +84,36 @@ def get_fnames(path, prefer_iharm3d=False):
     for scheme in itertools.product(folders, fnames, exts):
         files = np.sort(glob(os.path.join(path, scheme[0], scheme[1]+scheme[2])))
         if len(files) > 0:
-            # Explicitly take out some common things in dump directories
-            files = [f for f in files if ("grid" not in f) and ("eht_out" not in f)]
+            # Explicitly take out some common non-dump things in dump directories
+            files = [f for f in files if ("grid" not in f) and ("_out" not in f)]
+            # Unpack multiple tar files into a single run list. Only tars *or* unpacked files
+            tar_contents = []
+            use_tar = False
+            for f in files:
+                if ".tar" in f:
+                    tar_contents.extend(get_fnames(f))
+                    use_tar = True
+            if use_tar:
+                files = tar_contents # We no longer need the list of tars
+            # Sometimes the last file is being written & is invalid/unreadable
+            # Eliminate it if so
+            try:
+                tm = get_dump_time(files[-1])
+            except KeyError as e:
+                files = files[:-1]
+                return files
+            # get_dump_time can return None on errors too
+            if tm is None:
+                files = files[:-1]
+                return files
+            # Add 'final' IF it is later than the last existing file
+            final_candidate = glob(os.path.join(path, scheme[0], "*.out*.final"+scheme[2]))
+            if len(final_candidate) > 0:
+                if get_dump_time(final_candidate[0]) > get_dump_time(files[-1]):
+                    files.append(final_candidate[0])
             return files
 
-    raise FileNotFoundError("No dump files found at {}/{}".format(os.getcwd(),path))
+    raise FileNotFoundError("No dump files found at {}".format(os.path.realpath(path)))
 
 def _get_filter_class(fname):
     """Internal pyharm i/o function to choose which class to use when reading a new file.
@@ -90,12 +121,15 @@ def _get_filter_class(fname):
     afterward.
     TODO keep in mind we should print good errors called on e.g. a gridfile
     """
-    if ".phdf" in fname or ".rhdf" in fname:
+    if isinstance(fname, tuple):
+        return KHARMATarFile
+    elif ".phdf" in fname or ".rhdf" in fname:
         return KHARMAFile
     elif ".h5" in fname:
         with h5py.File(fname, 'r') as f:
             if 'header' in f.keys():
-                if 'KORAL' in f["/header/version"][()].decode('UTF-8'):
+                if 'version' in f["/header"].keys() and \
+                    'KORAL' in f["/header/version"][()].decode('UTF-8'):
                     return KORALFile
                 else:
                     return Iharm3DFile
@@ -120,20 +154,16 @@ def get_dump_time(fname):
 
 def get_dump_type(fname):
     """Attempt to get an unknown dump's type even if we can't load it"""
-    filter = _get_filter_class(fname)
-    if filter == KHARMAFile:
-        name = "KHARMA"
-    elif filter == Iharm3DFile:
-        name = "iharm3D"
-    elif filter == KORALFile:
-        name = "KORAL"
-    elif filter == Iharm3DRestart:
-        name = "iharm3D (restart)"
-    elif filter == HAMRFile:
-        name = "H-AMR"
-    elif filter == HARM2DFile:
-        name = "iharm2d"
-    return name
+    # TODO define pretty names inside the classes?
+    return {
+        KHARMAFile: "KHARMA",
+        Iharm3DFile: "iharm3D",
+        Iharm3DRestart: "iharm3D (restart)",
+        KORALFile: "KORAL",
+        HAMRFile: "H-AMR",
+        HARM2DFile: "iharm2d"
+    }[_get_filter_class(fname)]
+
 
 def read_hdr(fname):
     """Get just the header/params embedded in a simulation file.

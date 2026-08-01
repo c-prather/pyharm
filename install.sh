@@ -3,9 +3,7 @@
 # These will be managed entirely with pip soon,
 # but I may need to work on yt for a bit
 
-if [ command -v git > /dev/null 2>&1 ]; then
-  git submodule update --recursive --init
-fi
+git submodule update --recursive --init
 
 # yt for new plotting
 cd external/yt

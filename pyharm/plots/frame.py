@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,7 @@ import matplotlib.pyplot as plt
 
 from .. import io
 from ..fluid_state import FluidState
+from ..ana_results import load_result
 
 from . import figures
 from .plot_dumps import *
@@ -55,10 +56,12 @@ included in pyharm so as to be imported there easily.
 The code in `figures` would be a better place to start in writing your own additional movies/plots.
 """
 
-def do_plot(fig, dump, diag, movie_type, plotrc):
+def do_plot(fig, dump, movie_type, plotrc):
         # PLOT
         if movie_type in figures.__dict__:
             # Named movie frame figures in figures.py
+            diag = load_result(plotrc['diag'])
+            del plotrc['diag']
             fig = figures.__dict__[movie_type](fig, dump, diag, plotrc)
         else:
             # Try to make a simple movie of just the stated variable
@@ -77,7 +80,9 @@ def do_plot(fig, dump, diag, movie_type, plotrc):
                 plotrc['log'] = True
 
             # Various options 
-            if "_poloidal" in movie_type or "_2d" in movie_type:
+            # TODO move all these to arguments, start automatically tagging some things
+            if "_poloidal" in movie_type or "_2d" in movie_type \
+                or (dump['n3'] == 1 and dump['n2'] != 1):
                 ax = plt.subplot(1, 1, 1)
                 movie_type = movie_type.replace("_poloidal","")
                 var = movie_type
@@ -116,7 +121,8 @@ def do_plot(fig, dump, diag, movie_type, plotrc):
                 # TODO multiple variables w/user title?
                 ax.grid(True, axis='both')
                 ax.set_title(pretty(var))
-            elif "_1d" in movie_type:
+            elif "_1d" in movie_type or \
+                (dump['n3'] == 1 and dump['n2'] == 1):
                 ax = plt.subplot(1, 1, 1)
                 movie_type = movie_type.replace("_1d","")
                 var = movie_type
@@ -150,9 +156,17 @@ def do_plot(fig, dump, diag, movie_type, plotrc):
                         adjustrc[key] = plotrc[key]
                 fig.subplots_adjust(**adjustrc)
 
-def frame(fname, diag, kwargs):
+def frame(fname, kwargs):
+    try:
+        if 'progressbar' in kwargs and not kwargs['progressbar']:
+            print("Plotting",fname.split("/")[-1], file=sys.stderr)
+        make_frame(fname, kwargs)
+    except KeyError as e:
+        print(f"Error making frame {fname}: {e}\nSkipping file!", file=sys.stderr)
+
+def make_frame(fname, kwargs):
     # If we're outside the timeframe we don't need to make *anything*
-    tstart, tend = kwargs['tstart'], kwargs['tend']
+    tstart, tend = kwargs['tstart'], kwargs['tend'] # float(kwargs['tstart']), float(kwargs['tend'])
     tdump = io.get_dump_time(fname)
     if tdump is None:
         # TODO yell about not knowing dump times
@@ -166,15 +180,16 @@ def frame(fname, diag, kwargs):
     movie_types = []
     ghost_zones = False
     for movie_type in kwargs['movie_types'].split(","):
-        frame_folder = os.path.join(os.getcwd().replace(kwargs['base_path'], kwargs['out_path']), "frames_"+movie_type)
+        movie_name = movie_type+("_"+kwargs['tag'] if kwargs['tag'] != "" else "")
+        frame_dir = os.path.join(kwargs['out_path'], "frames_"+movie_name)
         if 'numeric_fnames' in kwargs and kwargs['numeric_fnames']:
-            frame_name = os.path.join(frame_folder, "frame_"+fname.split('.')[-2]+".png")
+            frame_id = fname.split('.')[-2]
         elif 'accurate_fnames' in kwargs and kwargs['accurate_fnames']:
-            time_formatted = ("%.2f"%tdump).rjust(kwargs['time_digits'],'0')
-            frame_name = os.path.join(frame_folder, "frame_t"+time_formatted+".png")
+            frame_id = "t"+("%.2f"%tdump).rjust(kwargs['time_digits'],'0')
         else:
-            time_formatted = ("%d"%int(tdump)).rjust(kwargs['time_digits'],'0')
-            frame_name = os.path.join(frame_folder, "frame_t"+time_formatted+".png")
+            frame_id = "t"+("%d"%int(tdump)).rjust(kwargs['time_digits'],'0')
+
+        frame_name = os.path.join(frame_dir, "frame_"+frame_id+".png")
 
         if 'resume' in kwargs and kwargs['resume'] and os.path.exists(frame_name):
             continue
@@ -191,8 +206,6 @@ def frame(fname, diag, kwargs):
     if len(movie_types) == 0:
         return
 
-    print("Imaging t={}".format(int(tdump)), file=sys.stderr)
-
     # This just attaches the file and creates a grid.  We do need to specify
     # if any movie will need ghosts, for the index math
     dump = FluidState(fname, ghost_zones=ghost_zones, use_grid_cache=(not kwargs['no_grid_cache']),
@@ -202,7 +215,7 @@ def frame(fname, diag, kwargs):
         # Set plotting options we'll pass on to figure-specific code
         plotrc = {}
         # Plotting options are copied from kwargs and share the same names
-        for key in ('vmin', 'vmax', 'xmin', 'xmax', 'ymin', 'ymax',
+        for key in ('vmin', 'vmax', 'xmin', 'xmax', 'ymin', 'ymax', 'tstart', 'tend',
                     'left', 'right', 'top', 'bottom', 'wspace', 'hspace'):
             # Should be floats or none
             try:
@@ -213,10 +226,10 @@ def frame(fname, diag, kwargs):
         for key in ('at', 'nlines'):
             # Should be ints
             plotrc[key] = int(kwargs[key])
-        for key in ('native', 'bh', 'no_title', 'average', 'sum', 'log', 'log_r'):
+        for key in ('bh', 'no_title', 'average', 'sum', 'log', 'log_r'):
             # Should be bools
             plotrc[key] = bool(kwargs[key])
-        for key in ('shading', 'cmap'):
+        for key in ('shading', 'cmap', 'diag'):
             plotrc[key] = kwargs[key] #lower()?
 
         # Choose a domain size 
@@ -263,12 +276,13 @@ def frame(fname, diag, kwargs):
         #  _array plots override a bunch of things
         # Handle and strip
         plotrc['native'] = False
-        if "_array" in movie_type:
+        if "_array" in movie_type or kwargs['array']:
             plotrc['native'] = True
             if not user_window:
                 plotrc['window'] = None # Let plotter choose based on grid
             plotrc['shading'] = 'flat'
             plotrc['half_cut'] = True
+            plotrc['bh'] = False
             movie_type = movie_type.replace("_array","")
 
         # Options to place
@@ -282,12 +296,12 @@ def frame(fname, diag, kwargs):
             pass
 
         plotrc['overlay_field'] = \
-            'overlay_field' in kwargs and kwargs['overlay_field'] and not plotrc['native']
+            'overlay_field' in kwargs and kwargs['overlay_field']
 
         fig = plt.figure(figsize=(kwargs['fig_x'], kwargs['fig_y']))
         
         # Plot the dump we were assigned
-        do_plot(fig, dump, diag, movie_type, plotrc)
+        do_plot(fig, dump, movie_type, plotrc)
 
         if kwargs['multizone']:
             # plot outlines of the current run *above* the current run

@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@ __license__ = """
 
 import sys
 import numpy as np
+import warnings
 
 from ..fluid_state import FluidState
 from . import analyses
@@ -47,7 +48,6 @@ def write_ana_dict(out, out_full, n, n_dumps):
     Note this is not thread-safe and must be called from one process
     """
     if out is None:
-        print("Failed to read dump number {}".format(n))
         return
     for key in list(out.keys()):
         tag = key.split('/')[0]
@@ -75,18 +75,33 @@ def analyze(args):
     out = {}
     dump = FluidState(fname)
     ana_types = kwargs['ana_types'].split(",")
+    prints_only = True
+    for atype in ana_types:
+        if 'print' not in atype:
+            prints_only = False
+
     # Always start with "basic" as it's got some things we'll need
-    if ana_types[0] != "basic":
+    # (unless we're just printing something)
+    if not prints_only and ana_types[0] != "basic":
         ana_types.insert(0, "basic")
+    
+    # Actually do the analyses, adding to the 'out' dictionary
     for type in ana_types:
         analyses.__dict__[type](dump, out, **kwargs)
+
+    del dump
+
     return out
 
 def analyze_catch_err(args):
     try:
+        warnings.simplefilter("ignore")
+        if 'progressbar' in args[1] and not args[1]['progressbar']:
+            print("Analyzing",args[0].split("/")[-1], file=sys.stderr)
         return analyze(args)
     except Exception as e:
         # Make sure we still surface errors when running under MPI,
         # but don't crash the run on a bad file read.
         print(e, file=sys.stderr)
+        print("Failed to analyze dump", file=sys.stderr)
         return None

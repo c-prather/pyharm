@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -87,8 +87,8 @@ def _model_pretty(folder):
     else:
         return folder.replace("")
 
-def radial_profile(ax, result, var, arange=-1000, window=(2,50), disk=True, plot_std=False, plot_eh=False, selector=None, tag="",
-                   print_time=False, model_shared_portion=0, **kwargs):
+def _radial_profile(ax, result, var, arange=-1000, window=(1,500), disk=True, plot_std=False, plot_eh=False, selector=None, tag="",
+                   print_time=False, model_shared_portion=0, plotrc={}, **kwargs):
 
     if selector is not None and not selector(result.tag):
         return
@@ -103,16 +103,10 @@ def radial_profile(ax, result, var, arange=-1000, window=(2,50), disk=True, plot
     # Get just the relevant radial slice so y-limits get set properly
     r_slice = _get_r_slice(result, (window[0]-1, window[1]+20))
 
-    if disk:
-        tyvals = result['rt/{}_disk'.format(var)][avg_slice, r_slice]
-    else:
-        try:
-            tyvals = result['rt/{}_all'.format(var)][avg_slice, r_slice]
-        except (OSError,IOError):
-            tyvals = result['rt/{}_disk'.format(var)][avg_slice, r_slice] + result['rt/{}_notdisk'.format(var)][avg_slice, r_slice]
+    tyvals = result['rt/{}'.format(var)][avg_slice, r_slice]
 
     yvals = np.mean(tyvals, axis=0)
-    p = ax.loglog(result['r'][r_slice], yvals, label=model+("",r" {}-{} $t_g$".format(*times))[print_time], **kwargs)
+    p = ax.plot(result['r'][r_slice], yvals, label=model+("",r" {}-{} $t_g$".format(*times))[print_time], **plotrc)
     if plot_std:
         yerrs = np.std(tyvals, axis=0)
         ax.fill_between(result['r'][r_slice], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
@@ -248,42 +242,68 @@ def res_study_avg_std(results, kwargs, plotrc={}):
     return fig
 
 def default_radial_averages(results, kwargs):
-    if kwargs['vars'] is None:
+    if kwargs['varlist'] is None:
         vars = ('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^3', 'sigma_post', 'inv_beta_post')
     else:
-        vars = kwargs['vars']
+        vars = kwargs['varlist']
 
-    for result in results.values():
-        # Radial profiles of variables
-        nx = min(len(vars), 4)
-        ny = (len(vars)-1)//4+1
-        fig, _ = plt.subplots(ny, nx, figsize=(4*nx,4*ny))
-        ax = fig.get_axes()
+    # Radial profiles of variables
+    nx = min(len(vars), 4)
+    ny = (len(vars)-1)//4+1
+    fig, _ = plt.subplots(ny, nx, figsize=(4*nx,4*ny))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(vars):
+            window = _radial_profile(ax[a], result, var, **kwargs)
 
-        window = plot_radial_averages(ax, results, kwargs, default_r=50)
+    return fig
 
-def radial_fluxes(results, kwargs):
-    for result in results.values():
-        fig, _ = plt.subplots(1,3, figsize=(14,4))
-        ax = fig.get_axes()
-        window = plot_radial_averages(ax, results, kwargs, default_r=20)
+def jet_fluxes(results, kwargs):
+    if kwargs['varlist'] is None:
+        vars = ('Mdot_jet', 'P_jet', 'P_EM_jet')
+    else:
+        vars = kwargs['varlist']
 
+    fig, _ = plt.subplots(len(vars), 1, figsize=(7, 3*len(vars)))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(vars):
+            window = _radial_profile(ax[a], result, var, **kwargs)
+            if a < len(vars)-1:
+                ax[a].set_xlabel('')
+                ax[a].set_xticklabels([])
+                ax[a].tick_params(length=0)
+    fig.subplots_adjust(left=0.2, hspace=0.02)
+
+    return fig
 
 def disk_momentum(results, kwargs):
-    kwargs['vars'] = "u_3"
+    kwargs['varlist'] = "u_3"
     return radial_averages(results, kwargs)
 
-def plot_eh_fluxes(ax, result, per=False):
-    if per:
-        tag = '_per'
-    else:
-        tag = ''
-    for a,var in enumerate(('mdot', 'phi_b'+tag, 'abs_ldot'+tag, 'eff'+tag)):
-        ax[a].plot(result['t'], result['t/{}'.format(var)], label=result.tag)
+def _plot_eh_fluxes(ax, result, per=False, arange=None, vars=('mdot', 'phi_b', 'ldot', 'eff')):
+    # TODO somehow make this less janky
+    #result.diag_fns['mdot'] = lambda diag: diag['Mdot']
+    #result.diag_fns['eff'] = lambda diag: diag['eff_jet50']
+
+    for a,var in enumerate(vars):
+        data = result['t/{}'.format(var)]
+        if 'phi_b' in var:
+            data *= np.sqrt(4*np.pi)
+        pt = ax[a].plot(result['t'], data, label=result.tag)
+        if arange is not None:
+            # Get the times to average
+            avg_slice = _get_t_slice(result, arange)
+            times = (round(result['t'][avg_slice][0]/1000)*1000,
+                    round(result['t'][avg_slice][-1]/1000)*1000)
+            avg = np.mean(data[avg_slice])
+            ax[a].hlines(avg, times[0], times[1], colors=pt[0].get_color(), linestyles='dashed')
+            ax[a].text(times[1], avg, f"{avg:.2f}")
+            
         ax[a].set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
         ax[a].grid(True)
 
-def plot_eh_phi_versions(ax, result):
+def _plot_eh_phi_versions(ax, result):
     for a,var in enumerate(('phi_b', 'phi_b_upper', 'phi_b_lower')):
         ax[a].plot(result['t'], result['t/{}'.format(var)], label=result.tag)
         ax[a].set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
@@ -292,20 +312,94 @@ def plot_eh_phi_versions(ax, result):
     ax[0].plot(result['t'], np.abs(result['t/phi_b_upper'])+np.abs(result['t/phi_b_lower']), label=result.tag+" hemispheres")
 
 def eh_phi_versions(results, kwargs):
-    for result in results.values():
+    for result in results:
         # Event horizon fluxes
         fig, _ = plt.subplots(3,1, figsize=(7,7))
         axes = fig.get_axes()
-        plot_eh_phi_versions(axes, result)
+        _plot_eh_phi_versions(axes, result)
         plt.subplots_adjust(wspace=0.4)
     return fig
 
 def eh_fluxes(results, kwargs):
-    fig, _ = plt.subplots(4,1, figsize=(7,7))
+    # TODO(CEP) handle "per" here, via vars arguments
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10
+    fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
     ax = fig.get_axes()
-    for result in results: #.values():
-        plot_eh_fluxes(ax, result)
+    for result in results:
+        arange = kwargs['arange'] if 'arange' in kwargs else None
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange)
 
     ax[0].legend()
+    if kwargs['ymax_eff'] is not None:
+        ax[3].set_ylim(0, kwargs['ymax_eff'])
+    plt.subplots_adjust(wspace=0.4)
+    return fig
+
+def eh_fluxes_raw(results, kwargs):
+    # TODO(CEP) handle "per" here, via vars arguments
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10
+    fig, _ = plt.subplots(4,1, figsize=(xsize, ysize))
+    ax = fig.get_axes()
+    for result in results:
+        arange = kwargs['arange'] if 'arange' in kwargs else None
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, vars=('mdot', 'Phi_b', 'Ldot', 'Edot'))
+
+    ax[0].legend()
+    if kwargs['ymax_eff'] is not None:
+        ax[3].set_ylim(0, kwargs['ymax_eff'])
+    plt.subplots_adjust(wspace=0.4)
+    return fig
+
+def jet_efficiency(results, kwargs):
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 3
+    fig, _ = plt.subplots(1,1, figsize=(xsize, ysize))
+    ax = fig.get_axes()
+    for result in results:
+        arange = kwargs['arange'] if 'arange' in kwargs else None
+        _plot_eh_fluxes(ax, result, per=kwargs['per'], arange=arange, vars=('eff',))
+
+    ax[0].legend()
+    if kwargs['ymax_eff'] is not None:
+        ax[3].set_ylim(0, kwargs['ymax_eff'])
+    plt.subplots_adjust(wspace=0.4)
+    return fig
+
+def mdot_versions(results, kwargs):
+    fig, _ = plt.subplots(3,1, figsize=(10,10))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(('mdot', 'Mdot', 'Mdot_5')):
+            # Mdot
+            ax[0].plot(result['t'], result['t/{}'.format(var)], label=f"{result.tag} {var}")
+            ax[0].set_ylabel(pyharm.pretty('mdot'), rotation=0, ha='right')
+            ax[0].grid(True)
+            # Phi normalized on that mdot
+            ax[1].plot(result['t'], result['Phi_b'] / np.sqrt(result[f'smoothed_{var}']))
+            yl = r"$\frac{\Phi_{BH}}{\sqrt{\langle " + pyharm.pretty('mdot', segment=True) + r"\rangle}}$"
+            ax[1].set_ylabel(yl, rotation=0, ha='right')
+            ax[1].grid(True)
+        # Versions of Edot
+        for a,var in enumerate(('Edot', 'Edot_5')):
+            ax[2].plot(result['t'], result[var] / result['smoothed_mdot'], label=f"{result.tag} {var}")
+        ax[2].plot(result['t'], result['edot'], label=f"{result.tag} edot")
+        fe_i = i_of(dump['r1d'], 40.)
+        ax[2].plot(result['t'], result['FE'][fe_i] / result['smoothed_mdot'], label=f"{result.tag} Edot_40")
+        ax[2].set_ylabel(pyharm.pretty('edot'), rotation=0, ha='right')
+        ax[2].grid(True)
+
+        # Versions of eta
+        for a,var in enumerate(('Edot', 'Edot_5')):
+            ax[3].plot(result['t'], result[var] / result['smoothed_mdot'], label=f"{result.tag} {var}")
+        ax[3].plot(result['t'], result['edot'], label=f"{result.tag} edot")
+        fe_i = i_of(dump['r1d'], 40.)
+        ax[3].plot(result['t'], result['FE'][fe_i] / result['smoothed_mdot'], label=f"{result.tag} Edot_40")
+        ax[3].set_ylabel(pyharm.pretty('edot'), rotation=0, ha='right')
+        ax[3].grid(True)
+
+    ax[0].legend()
+    ax[2].legend()
     plt.subplots_adjust(wspace=0.4)
     return fig
