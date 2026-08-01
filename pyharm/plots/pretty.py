@@ -94,7 +94,9 @@ pretty_dict = {'rho': r"\rho",
             # Results of reductions which are canonically named
             'MBH': r"M_{\mathrm{BH}}",
             'Mdot': r"\dot{M}",
+            'Mdot_per': r"\dot{M}",
             'mdot': r"\dot{M}",
+            'mdot_per': r"\dot{M}",
             'Phi_b': r"\Phi_{BH}",
             'Edot': r"\dot{E}",
             'Ldot': r"\dot{L}",
@@ -125,37 +127,42 @@ pretty_dict = {'rho': r"\rho",
 def pretty(var, segment=False):
     """Return a pretty LaTeX form of the named variable"""
 
-    pretty_var = ""
-    # Strip any flags that don't result in a different string
-    if "_post" in var:
-        return pretty(var.replace("_post",""), segment=segment)
-    if "_disk" in var:
-        return pretty(var.replace("_disk",""), segment=segment) + " (disk-average)"
-    if "_jet" in var:
-        return pretty(var.replace("_jet",""), segment=segment) + " (jet-average)"
-    if "_notdisk" in var:
-        return pretty(var.replace("_notdisk",""), segment=segment) + " (except disk)"
-
-    # Break down the name and translate bits we know to Latex;
-    # keeps anything we don't understand as-is, no formatting
-    ret = var
-    if var[:4] == "log_":
-        ret = r"\log_{10} \left( "+pretty(var[4:], segment=True)+r" \right)"
-    if var[:4] == "abs_":
-        ret = r"\left| "+pretty(var[4:], segment=True)+r" \right|"
-    if var[:4] == "neg_":
-        ret = r"-" + pretty(var[4:], segment=True)
-    if var[:4] == "inv_":
-        ret = r"1 / " + pretty(var[4:], segment=True)
     if var in pretty_dict:
         ret = pretty_dict[var]
-    elif var.split("_")[0] in pretty_dict:
-        parts = var.split("_")
-        try:
-            # If it's a number the \text will choke
-            ret = pretty_dict[parts[0]] + r"_{" + str(int(parts[1])) + r"}"
-        except:
-            ret = pretty_dict[parts[0]] + r"_\mathrm{" + "_".join(parts[1:]) + r"}"
+    else:
+        pretty_var = ""
+        # Strip any flags that don't result in a different string
+        if "_post" in var:
+            return pretty(var.replace("_post",""), segment=segment)
+        if "_disk" in var:
+            return pretty(var.replace("_disk",""), segment=segment) + " (disk-average)"
+        if "_jet" in var:
+            return pretty(var.replace("_jet",""), segment=segment) + " (jet-average)"
+        if "_notdisk" in var:
+            return pretty(var.replace("_notdisk",""), segment=segment) + " (except disk)"
+
+        # Break down the name and translate bits we know to Latex;
+        # keeps anything we don't understand as-is, no formatting
+        ret = var
+        if var[:4] == "log_":
+            ret = r"\log_{10} \left( "+pretty(var[4:], segment=True)+r" \right)"
+        if var[:4] == "abs_":
+            ret = r"\left| "+pretty(var[4:], segment=True)+r" \right|"
+        if var[:4] == "neg_":
+            ret = r"-" + pretty(var[4:], segment=True)
+        if var[:4] == "inv_":
+            ret = r"1 / " + pretty(var[4:], segment=True)
+        if var[:5] == "sqrt_":
+            ret = r"\sqrt{"+pretty(var[5:], segment=True)+r"}"
+        if var[:7] == "smooth_":
+            ret = r"\mathrm{smoothed}\left({"+pretty(var[7:], segment=True)+r"}\right)"
+        elif var.split("_")[0] in pretty_dict:
+            parts = var.split("_")
+            try:
+                # If it's a number the \text will choke
+                ret = pretty_dict[parts[0]] + r"_{" + str(int(parts[1])) + r"}"
+            except:
+                ret = pretty_dict[parts[0]] + r"_\mathrm{" + "_".join(parts[1:]) + r"}"
     
     if segment:
         return ret

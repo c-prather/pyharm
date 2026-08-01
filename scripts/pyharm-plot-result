@@ -81,6 +81,7 @@ class ExtensibleCmd(click.Command):
 @click.option('--xmin', type=float, default=None, help="X-axis minimum")
 @click.option('--ymax', type=float, default=None, help="Y-axis maximum")
 @click.option('--ymin', type=float, default=None, help="Y-axis minimum")
+@click.option('--one-ymin', type=(int, float), multiple=True, help="Y-axis minimum for a particular plot: axis num, lim")
 @click.option('--logy', is_flag=True, help="Logarithmic Y-axis")
 @click.option('--logx', is_flag=True, help="Logarithmic X-axis")
 # Bounds on particular plots
@@ -162,10 +163,15 @@ def plot_results(plot_type, files, **kwargs):
     for fig in figs:
         # Any other closing/format stuff
         for ax in fig.get_axes():
+            # TODO handle these in individual figures?
             ax.set_xlim(kwargs['xmin'],  kwargs['xmax'])
             ax.set_ylim(kwargs['ymin'],  kwargs['ymax'])
-            if kwargs['logy']:
-                ax.set_yscale('symlog', linthresh=1e-1)
+            # This is handled in individual figures!
+            # if kwargs['logy']:
+            #     try:
+            #         ax.set_yscale('log')
+            #     except ValueError:
+            #         ax.set_yscale('symlog', linthresh=1e-1)
 
         # User tag (or file, if one file), then fn, then extension
         if len(results) == 1 and kwargs['tag'] == "compare":

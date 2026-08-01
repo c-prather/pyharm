@@ -138,8 +138,14 @@ class AnaResults(object):
     diag_fn_common = {
                     # Default to EH (TODO bad idea?)
                     'Mdot': lambda diag: diag['Mdot_EH'],
+                    'mdot': lambda diag: diag['Mdot'],
+                    'Mdot_per': lambda diag: diag['Mdot'],
+                    'mdot_per': lambda diag: diag['Mdot'],
                     'Edot': lambda diag: diag['Edot_EH'],
                     'Ldot': lambda diag: diag['Ldot_EH'],
+                    'Mdot_5M': lambda diag: diag['Mdot_5'],
+                    'Edot_5M': lambda diag: diag['Edot_5'],
+                    'Ldot_5M': lambda diag: diag['Ldot_5'],
                     # For prettier names
                     'u^phi': lambda diag: diag['u^3'],
                     # Standard names for some EH fluxes
@@ -152,12 +158,12 @@ class AnaResults(object):
                     'phi_b_upper_gauss': lambda diag: diag['Phi_b_upper'] / np.sqrt(diag['avg_Mdot']),
                     'phi_b_lower_gauss': lambda diag: diag['Phi_b_lower'] / np.sqrt(diag['avg_Mdot']),
                     'phi_b_hemispheres': lambda diag: diag['phi_b_upper'] + diag['phi_b_lower'],
-                    'mdot': lambda diag: diag['Mdot'],
                     'edot_per': lambda diag: diag['Edot'] / diag['Mdot'],
                     'edot': lambda diag: diag['Edot'] / diag['avg_Mdot'],
                     'ldot_per': lambda diag: diag['Ldot'] / diag['Mdot'],
                     'ldot': lambda diag: diag['Ldot'] / diag['avg_Mdot'],
                     'spinup': lambda diag: (diag['Ldot'] - 2*diag.params['a']*diag['Edot']) / -diag['avg_Mdot'],
+                    'spinup_per': lambda diag: (diag['Ldot'] - 2*diag.params['a']*diag['Edot']) / -diag['Mdot'],
                     # Post-processing functions for fluxes
                     'eff': lambda diag: diag['eff_5EH'],
                     'eff_per': lambda diag: diag['eff_5EH_per'],
@@ -172,7 +178,12 @@ class AnaResults(object):
                     # BZ rotation rate
                     'r_eh': lambda diag: 1 + np.sqrt(1 - diag.params['a']**2),
                     'Omega_H': lambda diag: diag.params['a'] / (2*diag['r_eh']),
-                    'omega_rel': lambda diag: diag['omega'] / diag['Omega_H']
+                    'htht/omega_rel': lambda diag: diag['htht/omega'] / diag['Omega_H'],
+                    'hth/omega_rel': lambda diag: diag['hth/omega'] / diag['Omega_H'],
+                    # Profiles
+                    'rt/FE_notdisk': lambda diag: diag['rt/FE_all'] - diag['rt/FE_disk'],
+                    'rt/FM_notdisk': lambda diag: diag['rt/FM_all'] - diag['rt/FM_disk'],
+                    'rt/FL_notdisk': lambda diag: diag['rt/FL_all'] - diag['rt/FL_disk'],
                     }
     # How to load variables from a KHARMA .hst file dictionary
     diags_hst = {'t': lambda diag: diag.file['diag/time'],
@@ -181,33 +192,34 @@ class AnaResults(object):
     # How to load from analysis results
     # Only if the original names aren't present -- they map to EH if so
     diags_ana = {'Mdot_EH': lambda diag: diag.file['t/Mdot_EH'][()] if 't/Mdot_EH' in diag.file else diag.file['t/Mdot'][()],
-                'Edot_EH': lambda diag: diag.file['t/Edot_EH'][()] if 't/Edot_EH' in diag.file else diag.file['t/Edot'][()],
+                'Edot_EH': lambda diag: diag._get_edot("EH"),
                 'Ldot_EH': lambda diag: diag.file['t/Ldot_EH'][()] if 't/Ldot_EH' in diag.file else diag.file['t/Ldot'][()],
                 'Mdot_5': lambda diag: diag.file['t/Mdot_5'][()],
-                'Edot_5': lambda diag: diag.file['t/Edot_5'][()],
+                'Edot_5': lambda diag: diag._get_edot("5M"),
                 'Ldot_5': lambda diag: diag.file['t/Ldot_5'][()],
                 }
 
-    diags_prefer_hst = {'t': lambda diag: diag.file['diag/time'],
-                'Phi_b': lambda diag: diag.file['diag/Phi_EH'],
-                'Mdot_EH': lambda diag: diag.file['diag/Mdot_EH'],
-                'Edot_EH': lambda diag: diag.file['diag/Edot_EH'],
-                'Ldot_EH': lambda diag: diag.file['diag/Ldot_EH'],
-                'Mdot_5': lambda diag: diag.file['diag/Mdot_5M'],
-                'Edot_5': lambda diag: diag.file['diag/Edot_5M'],
-                'Ldot_5': lambda diag: diag.file['diag/Ldot_5M']
+    diags_prefer_hst = {'t': lambda diag: diag.file['diag/time'][()],
+                'Phi_b': lambda diag: diag.file['diag/Phi_EH'][()],
+                'Mdot_EH': lambda diag: diag.file['diag/Mdot_EH'][()],
+                'Edot_EH': lambda diag: diag.file['diag/Edot_EH'][()],
+                'Ldot_EH': lambda diag: diag.file['diag/Ldot_EH'][()],
+                'Mdot_5': lambda diag: diag.file['diag/Mdot_5M'][()],
+                'Edot_5': lambda diag: diag.file['diag/Edot_5M'][()],
+                'Ldot_5': lambda diag: diag.file['diag/Ldot_5M'][()]
                 }
 
-    # TODO 5M option replacing these!
-    def _get_mdot(self):
-        if self.prefer_hst:
-            return diag.file['diag/Mdot_EH']
+    def _get_edot(self, tag):
+        # We consistently define Edot positive
+        if tag == "EH":
+            edot_file = self.file['t/Edot_EH'][()] if 't/Edot_EH' in self.file else self.file['t/Edot'][()]
         else:
-            # Old vs new analysis naming
-            if 't/Mdot_EH' in self.file:
-                return self.file['t/Mdot_EH'][()]
-            else:
-                return self.file['t/Mdot'][()]
+            edot_file = self.file['t/Edot_5'][()]
+
+        if not 'extras/edot_sign_vs_eht' in self.file:
+            return edot_file
+        else:
+            return edot_file * -self.file['extras/edot_sign_vs_eht'][()]
         
 
     def __init__(self, fname, tag=None, avg_is_smooth=False, avg_ends=None, prefer_hst=False):
@@ -409,13 +421,18 @@ class AnaResults(object):
         # TODO option for this diagnostic
         #print("Getting ivar/dvar ", ivar+"/"+dvar)
 
+        # For checking whether we've fetched anything later
+        ret_v = None
+
         # Cache based on *both* variables to avoid collisions e.g. t/Mdot vs rt/Mdot or something
         vname = ivar+"/"+dvar
         if vname in self.cache:
             return self.cache[vname]
 
         # Allow overriding file locations with functions
-        if dvar in self.diag_fns:
+        if vname in self.diag_fns:
+            ret_v = self.diag_fns[vname](self)
+        elif dvar in self.diag_fns:
             ret_v = self.diag_fns[dvar](self)
         elif ivar in self.file and dvar in self.file[ivar]:
             ret_v = self.file[ivar][dvar][()]
@@ -478,15 +495,9 @@ class AnaResults(object):
         elif 'Theta_post' in dvar:
             ret_v = (self.get_dvar(ivar, dvar.replace('Theta_post','Pg')) /
                     self.get_dvar(ivar, dvar.replace('Theta_post','rho')))
-        else:
-            raise IOError("Can't find variable: {} as a function of {}".format(dvar, ivar))
 
-        # We consistently define Edot positive
-        if "Edot" in dvar and self.ftype == "ana":
-            if not 'extras/edot_sign_vs_eht' in self.file:
-                ret_v *= 1.
-            else:
-                ret_v *= -self.file['extras/edot_sign_vs_eht'][()]
+        if ret_v is None:
+            raise IOError("Can't find variable: {} as a function of {}".format(dvar, ivar))
 
         self.cache[vname] = ret_v
         return ret_v
