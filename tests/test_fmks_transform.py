@@ -48,7 +48,7 @@ from common import compare
 P = np.array([0, 0, 0.4553683,  0.0147898,  0.7197036, 3.6612415,  0.2197483, -5.5480947])
 
 # Metric parameters from that simulation
-params = {'coordinates': 'fmks', 'a': 0.9375,
+params = {'base': 'spherical_ks', 'transform': 'fmks', 'a': 0.9375,
           'r_in': 1.2175642950007606, 'r_out': 1000.0,
           'hslope': 0.3, 'mks_smooth': 0.5, 'poly_xt': 0.82, 'poly_alpha': 14.0,
           'n1': 384, 'n2': 192, 'n3': 192}
