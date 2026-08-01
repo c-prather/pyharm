@@ -12,12 +12,18 @@ sphinx:
 # Non-HTML is useless until the docs are much longer
 formats: []
 
-python:
-  version: 3.7
-  install:
-     - method: setuptools
-       path: .
-  system_packages: true
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+# Old spec for the container
+#python:
+#  version: 3.7
+#  install:
+#     - method: setuptools
+#       path: .
+#  system_packages: true
 
 # This is _very slow_
 #conda:
