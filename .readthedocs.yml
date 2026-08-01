@@ -13,7 +13,7 @@ sphinx:
 formats: []
 
 build:
-  os: latest
+  os: ubuntu-lts-latest
   tools:
     python: latest
 
