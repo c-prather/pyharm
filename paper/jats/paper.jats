@@ -18,8 +18,7 @@
 <article-id pub-id-type="publisher-id">0</article-id>
 <article-id pub-id-type="doi">N/A</article-id>
 <title-group>
-<article-title><monospace>pyharm</monospace>: Analysis and Plotting for
-GRMHD</article-title>
+<article-title>pyharm: Analysis and Plotting for GRMHD</article-title>
 </title-group>
 <contrib-group>
 <contrib contrib-type="author" corresp="yes">
@@ -208,25 +207,25 @@ a Creative Commons Attribution 4.0 International License (CC BY
   memory-intensive, but when combined with slicing it can lead to
   dramatic improvements in runtime of complex analyses and reductions
   which share basic components.</p>
-  <p>With these optimizations, <monospace>pyharm</monospace> can perform
-  simple movies at great speed: <inline-formula><alternatives>
-  <tex-math><![CDATA[XX]]></tex-math>
-  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>X</mml:mi><mml:mi>X</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
-  frames/s on 64 cores of a single CPU node on the Harvard Cannon
-  cluster, XX frames/s on ALCF Crux. More complicated analyses, for
-  example <monospace>example_analysis</monospace> with computations of
-  XX, YY, ZZ, are performed at XX dumps/s on Cannon, YY dumps/s on
-  Crux.</p>
+  <p>With these optimizations, a basic variable from a low-resolution
+  (192x96x96 zones) run of 2000 snapshot files can be plotted in as
+  little as a minute on a 12-core desktop computer, and a single node of
+  Harvard Cannon (56 cores) images a more substantial simulation
+  (192x96x96 zones, ~3000 snapshots) in about a minute as well – in each
+  case, more than enough to generate a 30fps movie as it plays. A much
+  more complex analysis (about 70 reductions over derived variables)
+  completes in 20 minutes on the desktop and 31 minutes on the
+  cluster.</p>
 </sec>
 <sec id="tests">
   <title>Tests</title>
   <p>As primarily a plotting framework, most bugs or undesired behaviors
   in pyharm cannot be easily tested in an automated way. However,
   calculations of physical quantities are tested against expectations,
-  such as an example calculation of 4-vector quantities
-  <ext-link ext-link-type="uri" xlink:href="https://github.com/AFD-Illinois/docs/wiki/fmks-and-you">here</ext-link>.
-  “Golden file” regression tests of the calculation of basic reductions
-  are also available, over an array of different file formats.</p>
+  such as an example calculation of 4-vector quantities with known
+  results. “Golden file” regression tests of the calculation of basic
+  reductions are also available, over an array of different file
+  formats.</p>
 </sec>
 <sec id="research-projects-using-pyharm">
   <title>Research projects using <monospace>pyharm</monospace></title>
@@ -240,7 +239,8 @@ a Creative Commons Attribution 4.0 International License (CC BY
   (<xref alt="Event Horizon Telescope Collaboration et al., 2022" rid="ref-EHTSgrAV" ref-type="bibr">Event
   Horizon Telescope Collaboration et al., 2022</xref>), and independent
   papers using KHARMA, e.g. most recently
-  (<xref alt="Thomas2026?" rid="ref-Thomas2026" ref-type="bibr"><bold>Thomas2026?</bold></xref>),
+  (<xref alt="Thomas et al., 2026" rid="ref-Thomas2026" ref-type="bibr">Thomas
+  et al., 2026</xref>),
   (<xref alt="Bukowiecka et al., 2026" rid="ref-bukowiecka2026" ref-type="bibr">Bukowiecka
   et al., 2026</xref>) and
   (<xref alt="Stanway et al., 2026" rid="ref-stanway2026" ref-type="bibr">Stanway
@@ -922,6 +922,27 @@ a Creative Commons Attribution 4.0 International License (CC BY
       <date-in-citation content-type="access-date"><year iso-8601-date="2026-07-31">2026</year><month>07</month><day>31</day></date-in-citation>
       <uri>https://arxiv.org/abs/2605.27334</uri>
       <pub-id pub-id-type="doi">10.48550/arXiv.2605.27334</pub-id>
+    </element-citation>
+  </ref>
+  <ref id="ref-Thomas2026">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Thomas</surname><given-names>Tegan A.</given-names></name>
+        <name><surname>Ricarte</surname><given-names>Angelo</given-names></name>
+        <name><surname>Prather</surname><given-names>Cora</given-names></name>
+        <name><surname>Cho</surname><given-names>Hyerin</given-names></name>
+      </person-group>
+      <article-title>Observational Properties of Near-maximally Spinning Supermassive Black Holes</article-title>
+      <source>Publications of the Astronomical Society of the Pacific</source>
+      <publisher-name>The Astronomical Society of the Pacific</publisher-name>
+      <year iso-8601-date="2026-06">2026</year><month>06</month>
+      <date-in-citation content-type="access-date"><year iso-8601-date="2026-08-01">2026</year><month>08</month><day>01</day></date-in-citation>
+      <volume>138</volume>
+      <issue>6</issue>
+      <issn>1538-3873</issn>
+      <pub-id pub-id-type="doi">10.1088/1538-3873/ae7902</pub-id>
+      <fpage>064101</fpage>
+      <lpage></lpage>
     </element-citation>
   </ref>
   <ref id="ref-visitPaper">

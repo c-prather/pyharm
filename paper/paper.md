@@ -1,5 +1,5 @@
 ---
-title: '`pyharm`: Analysis and Plotting for GRMHD'
+title: 'pyharm: Analysis and Plotting for GRMHD'
 tags:
   - Python
   - magnetohydrodynamics
@@ -59,7 +59,7 @@ With these optimizations, a basic variable from a low-resolution (192x96x96 zone
 
 # Tests
 
-As primarily a plotting framework, most bugs or undesired behaviors in pyharm cannot be easily tested in an automated way.  However, calculations of physical quantities are tested against expectations, such as an example calculation of 4-vector quantities [here](https://github.com/AFD-Illinois/docs/wiki/fmks-and-you).  "Golden file" regression tests of the calculation of basic reductions are also available, over an array of different file formats.
+As primarily a plotting framework, most bugs or undesired behaviors in pyharm cannot be easily tested in an automated way.  However, calculations of physical quantities are tested against expectations, such as an example calculation of 4-vector quantities with known results.  "Golden file" regression tests of the calculation of basic reductions are also available, over an array of different file formats.
 
 # Research projects using `pyharm`
 
