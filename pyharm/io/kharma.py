@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@ import glob
 import numpy as np
 import pandas
 import h5py
+import tarfile
 
 from .. import parameters
 from ..util import slice_to_index, i_of
@@ -66,6 +67,7 @@ class KHARMAFile(DumpFile):
                        "KEL_WERNER":   "Kel_Werner",
                        "KEL_ROWAN":    "Kel_Rowan",
                        "KEL_SHARMA":   "Kel_Sharma",
+                       "KEL_HOWES":    "Kel_Howes",
                        "KEL_CONSTANT": "Kel_Constant",
                        "Q_TILDE":      "q",
                        "DP_TILDE":     "dP"}
@@ -74,7 +76,7 @@ class KHARMAFile(DumpFile):
     # the order they would appear
     # If iharm3d ever supports viscous AND e- together we're out of spec here & in general
     var_names_ordered = ['rho', 'u', 'u1', 'u2', 'u3', 'B1', 'B2', 'B3', 'q', 'dP',
-                         'Ktot', 'Kel_Constant', 'Kel_Werner', 'Kel_Rowan', 'Kel_Sharma']
+                         'Ktot', 'Kel_Constant', 'Kel_Howes', 'Kel_Kawazura', 'Kel_Rowan', 'Kel_Sharma', 'Kel_Werner']
 
 
     @classmethod
@@ -82,9 +84,13 @@ class KHARMAFile(DumpFile):
         """Quickly get just the simulation time represented in the dump file.
         For cutting on time without loading everything
         """
-        with h5py.File(fname, 'r') as dfile:
-            if 'Info' in dfile.keys():
-                return dfile['Info'].attrs['Time']
+        try:
+            with h5py.File(fname, 'r') as dfile:
+                if 'Info' in dfile.keys():
+                    return dfile['Info'].attrs['Time']
+        except:
+            pass
+
         return None
 
     def kharma_standardize(self, var):
@@ -100,6 +106,11 @@ class KHARMAFile(DumpFile):
             ind = int(var[-1:]) - 1
             # Then read the corresponding vector, cons/prims.u/B
             var = var[:-2] + ("B" if "B" in var[-2:] else "uvec")
+
+        if len(var) > 3 and var[-3] == "[" and var[-1] == "]":
+            ind = int(var[-2])
+            # variable will be stripped later, we need to allocate enough cache!
+            #var = var[:-3]
 
         # Extend the shorthand for primitive variables to their full names in KHARMA,
         # but not other variables.
@@ -145,6 +156,9 @@ class KHARMAFile(DumpFile):
                 par_string = par_string.decode("UTF-8")
             params = parameters.parse_parthenon_dat(par_string)
         else:
+            if not isinstance(fname, str):
+                return
+
             # Read from the closest parameter file
             path1 = "/".join(self.fname.split("/")[:-1])+"/*.par"
             fnames = glob.glob(path1)
@@ -170,7 +184,7 @@ class KHARMAFile(DumpFile):
         params['n_step'] = fil.NCycle
         params['num_blocks'] = fil.NumBlocks
         # Add dump number if we've conformed to usual naming scheme
-        fname_parts = self.fname.split("/")[-1].split(".")
+        fname_parts = self.fname.split("/")[-1].split(".") if isinstance(self.fname, str) else []
         if len(fname_parts) > 2:
             try:
                 params['n_dump'] = int(fname_parts[2])
@@ -280,6 +294,10 @@ class KHARMAFile(DumpFile):
                 out = np.zeros((4, *out_shape), dtype=astype)
             elif var.split(".")[-1] in ["B", "uvec"]: # We cache the whole thing even for an index
                 out = np.zeros((3, *out_shape), dtype=astype)
+            elif len(var) > 3 and var[-3] == "[" and var[-1] == "]":
+                # TODO(CEP) real shape
+                out = np.zeros((4, *out_shape), dtype=astype)
+                var = var[:-3]
             else:
                 out = np.zeros(out_shape, dtype=astype)
 
@@ -389,7 +407,7 @@ def read_log(fname):
         inf.readline()
         header = [e.split('=')[1].rstrip() for e in inf.readline().split('[')[1:]]
 
-    tab = pandas.read_table(fname, delim_whitespace=True, comment='#', names=header)
+    tab = pandas.read_table(fname, sep=r"\s+", comment='#', names=header)
     out = {}
     for name in header:
         out[name] = np.array(tab[name])
@@ -424,3 +442,20 @@ def read_log(fname):
             t_last = t
 
     return out
+
+class KHARMATarFile(KHARMAFile):
+
+    def __init__(self, filename, ghost_zones=False, params=None):
+        """Create an KHARMAFile object -- does not keep handles except when reading.
+        """
+        tarpath, member = filename
+        self.tf = tarfile.open(tarpath)
+        super(KHARMATarFile, self).__init__(self.tf.extractfile(member), ghost_zones, params)
+
+    @classmethod
+    def get_dump_time(cls, fname):
+        tarpath, member = fname
+        tf = tarfile.open(tarpath)
+        return super(KHARMATarFile, cls).get_dump_time(tf.extractfile(member))
+
+

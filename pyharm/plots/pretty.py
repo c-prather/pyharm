@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -78,6 +78,7 @@ pretty_dict = {'rho': r"\rho",
             'jsq': r"j^{2}",
             'current': r"J^{2}",
             'B': r"B",
+            'Gamma': r"\Gamma",
             'betagamma': r"\beta \gamma",
             'Theta': r"\Theta",
             'Thetap': r"\Theta_{\mathrm{e}}",
@@ -101,6 +102,9 @@ pretty_dict = {'rho': r"\rho",
             'ldot': r"\frac{\dot{L}}{\langle \dot{M} \rangle}",
             'ldot_per': r"\frac{\dot{L}}{\dot{M}}",
             'eff': r"\frac{\left| \dot{E} - \dot{M} \right|}{\langle \dot{M} \rangle}",
+            'eff_per': r"\frac{\left| \dot{E} - \dot{M} \right|}{\dot{M}}",
+            'eff_jet50': r"\frac{\left| P_\mathrm{jet} \right|}{\langle \dot{M} \rangle}",
+            'eff_jet50_per': r"\frac{\left| P_\mathrm{jet} \right|}{\dot{M}}",
             'spinup': r"\frac{\dot{L} - 2 a \dot{E}}{\langle \dot{M} \rangle}",
             # Independent variables
             't': r"t \; \left( \frac{G M}{c^3} \right)",
@@ -135,6 +139,13 @@ def pretty(var, segment=False):
         ret = r"1 / " + pretty(var[4:], segment=True)
     if var in pretty_dict:
         ret = pretty_dict[var]
+    elif var.split("_")[0] in pretty_dict:
+        parts = var.split("_")
+        try:
+            # If it's a number the \text will choke
+            ret = pretty_dict[parts[0]] + f"_{int(parts[1])}"
+        except:
+            ret = pretty_dict[parts[0]] + r"_\mathrm{" + "_".join(parts[1:]) + r"}"
     
     if segment:
         return ret

@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -169,17 +169,30 @@ def fix(params):
     if (not 'r_out' in params) and 'Rout' in params:
         params['r_out'] = params['Rout']
 
-    if 'config' in params:
+    try:
         params['electrons'] = to_number(params['config']['electrons']['on'])
+    except:
+        try:
+            params['electrons'] = to_number(params['config']['electrons'])
+        except:
+            params['electrons'] = 0
+
+    try:
         params['emhd'] = to_number(params['config']['emhd']['on'])
-    else:
-        params['electrons'] = 0
-        params['emhd'] = 0
+    except:
+        try:
+            params['electrons'] = to_number(params['config']['emhd'])
+        except:
+            params['electrons'] = 0
+
 
     if not ('prim_names' in params):
         if 'electrons' in params and params['electrons']:
             params['electrons'] = True # In case it was an int
-            params['prim_names'] = ["RHO", "UU", "U1", "U2", "U3", "B1", "B2", "B3", "KTOT", "KEL"]
+            # we want a has_electrons flag for ipole to read as well, for consistency
+            params['has_electrons'] = True
+            # params['prim_names'] = ["RHO", "UU", "U1", "U2", "U3", "B1", "B2", "B3", "KTOT", "KEL"]
+            params['prim_names'] = ["RHO", "UU", "U1", "U2", "U3", "B1", "B2", "B3","KEL_HOWES","KEL_KAWAZURA","KEL_ROWAN","KEL_SHARMA","KEL_WERNER"]
         else:
             params['electrons'] = False
             params['prim_names'] = ["RHO", "UU", "U1", "U2", "U3", "B1", "B2", "B3"]

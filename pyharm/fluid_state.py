@@ -3,7 +3,7 @@ __license__ = """
  
  BSD 3-Clause License
  
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
  
  Redistribution and use in source and binary forms, with or without
@@ -99,6 +99,10 @@ class FluidState:
             else:
                 self.reader = io.file_reader(data_source, params=params, ghost_zones=ghost_zones)
                 self.multizone = False
+        elif isinstance(data_source, tuple):
+            self.fname = data_source
+            self.reader = io.file_reader(data_source, params=params, ghost_zones=ghost_zones)
+            self.multizone = False
         else:
             self.fname = "memory_array"
 
@@ -186,6 +190,13 @@ class FluidState:
         'M_unit', 'RHO_unit', 'T_unit', etc.  See ``units.py`` for definitions.
         """
         self.units = get_units(MBH, M_unit, gam=self.params['gam'])
+
+    def __contains__(self, key):
+        try:
+            self[key]
+        except ValueError as e:
+            return False
+        return True
 
     def __getitem__(self, key):
         """Get any of a number of different things from the backing dump file, or from a cached version.
@@ -285,13 +296,13 @@ class FluidState:
             i, j = int(key[-3]), int(key[-1])
             if key[-5:-4] == "T":
                 return variables.T_mixed(self, i, j)
-            elif key[-7:-4] == "TEM":
+            elif key[-7:-4] == "TEM" or key[-8:-4] == "T_EM":
                 return variables.TEM_mixed(self, i, j)
-            elif key[-9:-4] == "TPAKE":
+            elif key[-9:-4] == "TPAKE" or key[-10:-4] == "T_PAKE":
                 return variables.TPAKE_mixed(self, i, j)
-            elif key[-7:-4] == "TEN":
+            elif key[-7:-4] == "TEN" or key[-8:-4] == "T_EN":
                 return variables.TEN_mixed(self, i, j)
-            elif key[-7:-4] == "TFl":
+            elif key[-7:-4] == "TFl" or key[-8:-4] == "T_Fl":
                 return variables.TFl_mixed(self, i, j)
 
         if ((key[-2:] == "^0" or key[-2:] == "^1" or key[-2:] == "^2" or key[-2:] == "^3")
@@ -320,11 +331,17 @@ class FluidState:
 
         # Return an array of the correct size filled with just zero or one
         # Don't cache these
-        # TODO avoid file read?
+        # TODO be able to calculate what *size* we are, not just slice
         if key in ('zero', '0'):
-            return np.zeros_like(self['rho'])
+            if len(self.cache.keys()) > 0:
+                return np.zeros_like(self.cache[list(self.cache.keys())[0]])
+            else:
+                return np.zeros_like(self['rho'])
         if key in ('one', '1'):
-            return np.ones_like(self['rho'])
+            if len(self.cache.keys()) > 0:
+                return np.ones_like(self.cache[list(self.cache.keys())[0]])
+            else:
+                return np.zeros_like(self['rho'])
         if self.fname != "memory_array":
             # Read things that we haven't cached and absolutely can't calculate
             # The reader keeps its own cache, so we don't add its items to ours

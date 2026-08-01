@@ -3,7 +3,7 @@ __license__ = """
 
  BSD 3-Clause License
 
- Copyright (c) 2020-2023, Ben Prather and AFD Group at UIUC
+ Copyright (c) 2020-2026, pyharm contributors
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
@@ -32,10 +32,12 @@ __license__ = """
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import os
 import sys
 
 from .reductions import *
 from .. import io
+from ..defs import FloorFlag_KHARMA
 
 __doc__ = \
 """Groups of particular related reductions performed over a GRMHD run.
@@ -58,34 +60,33 @@ def basic(dump, out, **kwargs):
     """Anything necessary for other functions: t, EH fluxes, whether to average
     """
 
-    # We have r_eh from the dump, but sometimes we want to calculate
-    # at a particular location
-    iEH = _get(kwargs, 'iEH')
-
     # Record dump time. TODO fallbacks?
     out['coord/t'] = dump['t']
     # Record whether this dump is part of the average
     out['t/is_avg'] = kwargs['t_avg_start'] < dump['t'] < kwargs['t_avg_end']
 
-    print("Analyzing t={}".format(int(dump['t'])), file=sys.stderr)
+    if not "cartesian" in dump.params['base']:
+        # We have r_eh from the dump, but sometimes we want to calculate
+        # at a particular location
+        iEH = _get(kwargs, 'iEH')
 
-    # FIELD STRENGTH
-    # The HARM B_unit is sqrt(4pi)*c*sqrt(rho), and this is standard for EHT comparisons
-    out['t/Phi_b'] = 0.5 * shell_sum(dump, 'abs_B1', at_i=iEH)
+        # FIELD STRENGTH
+        # The HARM B_unit is sqrt(4pi)*c*sqrt(rho), and this is standard for EHT comparisons
+        out['t/Phi_b'] = 0.5 * shell_sum(dump, 'abs_B1', at_i=iEH)
 
-    # FLUXES
-    # Radial profiles of Mdot and Edot, and their particular values
-    # EHT code-comparison normalization has all these values positive
-    for var, flux in [['Edot', 'FE'], ['Mdot', 'FM'], ['Ldot', 'FL']]:
-        out['t/'+var] = shell_sum(dump, flux, at_i=iEH)
-        # Also add the fluxes at r=5, which avoids floor trash and inaccuracies
-        out['t/'+var+'_5'] = shell_sum(dump, flux, at_r=5.)
+        # FLUXES
+        # Radial profiles of Mdot and Edot, and their particular values
+        # EHT code-comparison normalization has all these values positive
+        for var, flux in [['Edot', 'FE'], ['Mdot', 'FM'], ['Ldot', 'FL']]:
+            out['t/'+var] = shell_sum(dump, flux, at_i=iEH)
+            # Also add the fluxes at r=5, which avoids floor trash and inaccuracies
+            out['t/'+var+'_5'] = shell_sum(dump, flux, at_r=5.)
 
-    # Mdot and Edot are defined inward/positive at EH
-    out['t/Mdot'] *= -1
-    out['t/Edot'] *= -1
-    out['t/Mdot_5'] *= -1
-    out['t/Edot_5'] *= -1
+        # Mdot and Edot are defined inward/positive at EH
+        out['t/Mdot'] *= -1
+        out['t/Edot'] *= -1
+        out['t/Mdot_5'] *= -1
+        out['t/Edot_5'] *= -1
 
 def dynamo(dump, out, **kwargs):
     """Compare magnetization in the upper and lower hemisphere of EH, and at 5 r_g
@@ -190,15 +191,29 @@ def diagnostics(dump, out, **kwargs):
     out['rt/total_fails'] = np.sum(dump['fails'] > 0, axis=(1,2))
 
     # This isn't useful in single-precision
+    # TODO ensure it's just the recorded one if present
     #out['t/MaxDivB'] = np.max(dump['divB'])
 
 def print_flags(dump, out, **kwargs):
     """Just check floor and failure flags. Used as a cursory check for run sanity
     """
-    total_floors = np.sum(dump['floors'] > 0, axis=(1,2))
-    total_fails = np.sum(dump['fails'] > 0, axis=(1,2))
-    print("{} floors: {} failures: {}".format(dump.fname, total_floors, total_fails), file=sys.stderr)
-    # TODO some automated "bad" criterion
+    total_cells = np.sum(dump['fflag'] >= 0) # -1 is not used anymore, and only ever was for cells not evolved
+    total_floors = np.sum(dump['fflag'] > 0)
+    total_fails = np.sum(dump['pflag'] > 0)
+    out_str = str(os.path.basename(dump.fname)) + " "
+    if 'fofcflag' in dump:
+        total_fofc = np.sum(dump['fofcflag'] > 0)
+        out_str += "fofc: {} ({:.3}%) ".format(total_fofc, total_fofc / total_cells * 100)
+    out_str = "floors: {} ({:.3}%) failures: {} ({:.3}%)\n".format(
+                                            total_floors, total_floors / total_cells * 100,
+                                            total_fails, total_fails / total_cells * 100)
+    for i,ff in enumerate(FloorFlag_KHARMA):
+        nfloor = np.sum((dump['fflag'] & ff.value) > 0)
+        if nfloor > 0:
+            out_str += "{}: {} ({:.3}%)\n".format(ff.name, nfloor, nfloor / total_cells * 100)
+    print(out_str, file=sys.stderr, end="")
+
+    # TODO Other "bad" criteria? e.g. negative/NaN/0 etc?
 
 def print_divb(dump, out, **kwargs):
     """Just check divB. Used as a cursory check for restart file sanity
@@ -303,7 +318,8 @@ def jet_cut_lite(dump, out, **kwargs):
     """Compute jet powers with just the default cut from EHTC Paper V '19.
     These are the powers used in the table in that paper and the MAD Code Comparison '22
     """
-    is_jet = dump['Be_b'] > 1
+    #is_jet = dump['Be_b'] > 1
+    is_jet = dump['sigma'] >= 1
     for lum, flux in [['Mdot_jet', 'FM'], ['P_jet', 'FE'], ['P_EM_jet', 'FE_EM'], ['P_PAKE_jet', 'FE_PAKE'], ['P_EN_jet', 'FE_EN'], ['Area_jet', '1']]:
         out['rt/' + lum] = shell_sum(dump, flux, mask=is_jet)
     for lum, flux in [['Area_mag', '1']]:
@@ -388,3 +404,51 @@ def omega_bz_advanced(dump, out, **kwargs):
         out['rhth/omega_alt'] *= -alpha_over_omega
 
     del Fcov01, Fcov13, vr, vth, vphi
+
+def explosion_totals(dump, out, **kwargs):
+    """Totals for the Komissarov explosion
+    """
+    # Totals of the conserved vars *directly*
+    out['t/consrhotot'] = np.sum(dump['cons.rho'])
+    out['t/Etot'] = np.sum(dump['cons.u'])
+    out['t/P1tot'] = np.sum(dump['cons.uvec'][0])
+    out['t/P2tot'] = np.sum(dump['cons.uvec'][1])
+    out['t/P3tot'] = np.sum(dump['cons.uvec'][2])
+
+    out['t/P1abs_tot'] = np.sum(np.abs(dump['cons.uvec'][0]))
+    out['t/P2abs_tot'] = np.sum(np.abs(dump['cons.uvec'][1]))
+    out['t/P3abs_tot'] = np.sum(np.abs(dump['cons.uvec'][2]))
+
+    # Totals indirectly
+    out['t/rhou0tot'] = np.sum(dump['prims.rho']*dump['u^0'])
+    out['t/T00'] = np.sum(dump['T^0_0'])
+    out['t/T01'] = np.sum(dump['T^0_1'])
+    out['t/T02'] = np.sum(dump['T^0_2'])
+    out['t/T03'] = np.sum(dump['T^0_3'])
+
+    out['t/TFl00'] = np.sum(dump['TFl^0_0'])
+    out['t/TFl01'] = np.sum(dump['TFl^0_1'])
+    out['t/TFl02'] = np.sum(dump['TFl^0_2'])
+    out['t/TFl03'] = np.sum(dump['TFl^0_3'])
+
+    # Added material
+    out['t/consrho_add'] = np.sum((dump['Floors.rhou0add'] > 0) * dump['Floors.rhou0add'])
+    out['t/Etot_add']  = np.sum((dump['Floors.Tadd[0]'] > 0) * dump['Floors.Tadd[0]'])
+    out['t/P1tot_add'] = np.sum((dump['Floors.Tadd[1]'] > 0) * dump['Floors.Tadd[1]'])
+    out['t/P2tot_add'] = np.sum((dump['Floors.Tadd[2]'] > 0) * dump['Floors.Tadd[2]'])
+    out['t/P3tot_add'] = np.sum((dump['Floors.Tadd[3]'] > 0) * dump['Floors.Tadd[3]'])
+    # Subtracted material
+    out['t/consrho_sub'] = np.sum((dump['Floors.rhou0add'] < 0) * dump['Floors.rhou0add'])
+    out['t/Etot_sub']  = np.sum((dump['Floors.Tadd[0]'] < 0) * dump['Floors.Tadd[0]'])
+    out['t/P1tot_sub'] = np.sum((dump['Floors.Tadd[1]'] < 0) * dump['Floors.Tadd[1]'])
+    out['t/P2tot_sub'] = np.sum((dump['Floors.Tadd[2]'] < 0) * dump['Floors.Tadd[2]'])
+    out['t/P3tot_sub'] = np.sum((dump['Floors.Tadd[3]'] < 0) * dump['Floors.Tadd[3]'])
+
+    # Momentum conservation by halves, measuring symmetry
+    n1mid = dump['n1']//2
+    out['t/P1left'] =  np.sum(np.abs(dump['cons.uvec'][0,:n1mid,:,:]))
+    out['t/P1right'] = np.sum(np.abs(dump['cons.uvec'][0,n1mid:,:,:]))
+    n2mid = dump['n2']//2
+    out['t/P2left'] =  np.sum(np.abs(dump['cons.uvec'][1,:n2mid,:,:]))
+    out['t/P2right'] = np.sum(np.abs(dump['cons.uvec'][1,n2mid:,:,:]))
+
