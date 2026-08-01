@@ -21,4 +21,4 @@ jobs:
           python -m pip install -e .
       - name: Test with pytest
         run: |
-          coverage run -m pytest  -v -s
+          pytest -v -s tests/
