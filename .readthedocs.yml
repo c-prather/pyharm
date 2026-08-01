@@ -13,9 +13,9 @@ sphinx:
 formats: []
 
 build:
-  os: ubuntu-24.04
+  os: latest
   tools:
-    python: "3.12"
+    python: latest
 
 # Old spec for the container
 #python:
