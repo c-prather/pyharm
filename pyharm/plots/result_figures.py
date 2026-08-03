@@ -148,7 +148,6 @@ def _plot_radial_averages(results, kwargs, vars, max_nx=4):
         for a,var in enumerate(vars):
             window = _radial_profile(ax[a], result, var, **kwargs)
 
-    ax[0].legend()
     plt.subplots_adjust(wspace=0.4)
     return fig
 
@@ -210,7 +209,6 @@ def _hth_profile(ax, result, var, arange=-1000, print_time=False, plot_std=False
     ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
     if ylim is not None:
         ax.set_ylim(ylim)
-    ax.legend()
     ax.grid(True)
 
 def _plot_hth_profiles(results, kwargs, vars, ylim=None):
@@ -223,7 +221,6 @@ def _plot_hth_profiles(results, kwargs, vars, ylim=None):
         for a,var in enumerate(vars):
             window = _hth_profile(ax[a], result, var, ylim=ylim)
 
-    ax[0].legend(loc='upper left', bbox_to_anchor=(1.03, 1.0))
     plt.subplots_adjust(right=0.6)
     return fig
 
@@ -293,7 +290,6 @@ def _plot_time_evolutions(results, kwargs, vars):
                     if ymin_tuple[0] == a+1:
                         ax[a].set_ylim((ymin_tuple[1], None))
 
-    ax[0].legend(loc='upper left', bbox_to_anchor=(1.03, 1.0))
     plt.subplots_adjust(wspace=0.4, right=0.75)
     return fig
 
@@ -343,7 +339,6 @@ def edot_comparisons(results, kwargs):
             _plot_time_evolution(ax[a], result, var, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'], ymax=kwargs['ymax_eff'], label=var)
             ax[a].set_ylabel(result.tag)
 
-    ax[0].legend()
     plt.subplots_adjust(wspace=0.4)
     return fig
 
@@ -440,7 +435,6 @@ def _point_per_run(axis, results, var, to_plot, plot_vs, window=None, arange=-10
     elif to_plot == 'std_rel':
         axis.set_ylabel(r"$\frac{\sigma \left(" + pyharm.pretty(var, segment=True) + r"\right)}{\langle" + pyharm.pretty(var, segment=True) + r"\rangle}$", rotation=0, ha='right')
 
-    axis.legend()
 
 # Ready-made names: figsize, save name, etc. TODO handle kwargs not passed on to line plot
 def std_vs_spin(results, kwargs, plotrc={}):

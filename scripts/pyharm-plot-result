@@ -94,6 +94,7 @@ class ExtensibleCmd(click.Command):
 @click.option('--by-window', is_flag=True, help="Plot a point or line for each window of a series")
 @click.option('--per', is_flag=True, help="Normalize by instantaneous accretion rate")
 # Output
+@click.option('--legend-on', default="1", help="Legend location: \"outside\" or number of plot to inset")
 @click.option('-pdf', '--pdf', is_flag=True, help="Output to .pdf file rather than .png image")
 @click.option('--fig-x', type=float, default=None, help="Figure width in inches")
 @click.option('--fig-y', type=float, default=None, help="Figure height in inches")
@@ -161,17 +162,26 @@ def plot_results(plot_type, files, **kwargs):
     except:
         figs = [figs]
     for fig in figs:
-        # Any other closing/format stuff
+        # Legend: usually first plot
+        if kwargs['legend_on'] == "outside":
+            ax[0].legend(loc='upper left', bbox_to_anchor=(1.03, 1.0))
+        elif kwargs['legend_on'] == "none" or kwargs['legend_on'] == "off":
+            pass
+        else:
+            ax[int(kwargs['legend_on'])-1].legend()
+        # Limits
         for ax in fig.get_axes():
             # TODO handle these in individual figures?
             ax.set_xlim(kwargs['xmin'],  kwargs['xmax'])
             ax.set_ylim(kwargs['ymin'],  kwargs['ymax'])
-            # This is handled in individual figures!
+            # This is handled in individual figures!  Too hard to handle limits reliably for everything
             # if kwargs['logy']:
             #     try:
             #         ax.set_yscale('log')
             #     except ValueError:
             #         ax.set_yscale('symlog', linthresh=1e-1)
+        # Figure reshaping (TODO?)
+        #plt.subplots_adjust(wspace=0.4, right=0.75)
 
         # User tag (or file, if one file), then fn, then extension
         if len(results) == 1 and kwargs['tag'] == "compare":
