@@ -81,9 +81,10 @@ class ExtensibleCmd(click.Command):
 @click.option('--xmin', type=float, default=None, help="X-axis minimum")
 @click.option('--ymax', type=float, default=None, help="Y-axis maximum")
 @click.option('--ymin', type=float, default=None, help="Y-axis minimum")
+@click.option('--ymin-prop', type=float, default=None, help="Y-axis minimum as a proportion of maximum (i.e. 1e-5 for 5 decades)")
 @click.option('--one-ymin', type=(int, float), multiple=True, help="Y-axis minimum for a particular plot: axis num, lim")
-@click.option('--logy', is_flag=True, help="Logarithmic Y-axis")
-@click.option('--logx', is_flag=True, help="Logarithmic X-axis")
+@click.option('--logy/--no-logy', default=False, help="Logarithmic Y-axis")
+@click.option('--logx/--no-logx', default=False, help="Logarithmic X-axis")
 # Bounds on particular plots
 @click.option('--ymax-eff', type=float, default=None, help="Y-axis maximum on the efficiency, which can have spikes")
 # Time bounds
@@ -94,10 +95,18 @@ class ExtensibleCmd(click.Command):
 @click.option('--by-window', is_flag=True, help="Plot a point or line for each window of a series")
 @click.option('--per', is_flag=True, help="Normalize by instantaneous accretion rate")
 # Output
-@click.option('--legend-on', default="1", help="Legend location: \"outside\" or number of plot to inset")
+@click.option('--legend-on', default="1", help="Number of plot to place legend, or \"outside\"")
+@click.option('--legend-loc', type=str, default="best", help="Legend location string")
 @click.option('-pdf', '--pdf', is_flag=True, help="Output to .pdf file rather than .png image")
 @click.option('--fig-x', type=float, default=None, help="Figure width in inches")
 @click.option('--fig-y', type=float, default=None, help="Figure height in inches")
+@click.option('--fig-dpi', type=int, default=300, help="Figure resolution in dots per inch")
+@click.option('--fig-left', type=float, default=None, help="Left margin in subplots_adjust")
+@click.option('--fig-right', type=float, default=None, help="Right margin in subplots_adjust")
+@click.option('--fig-top', type=float, default=None, help="Top margin in subplots_adjust")
+@click.option('--fig-bottom', type=float, default=None, help="Bottom margin in subplots_adjust")
+@click.option('--fig-wspace', type=float, default=None, help="Width spacing in subplots_adjust")
+@click.option('--fig-hspace', type=float, default=None, help="Height spacing in subplots_adjust")
 @click.version_option(package_name='pyharm')
 def plot_results(plot_type, files, **kwargs):
     """Plot a result or set of results in a standard form, usually the contents of one or more
@@ -162,26 +171,27 @@ def plot_results(plot_type, files, **kwargs):
     except:
         figs = [figs]
     for fig in figs:
+        axes = fig.get_axes()
         # Legend: usually first plot
         if kwargs['legend_on'] == "outside":
-            ax[0].legend(loc='upper left', bbox_to_anchor=(1.03, 1.0))
+            axes[0].legend(loc='upper left', bbox_to_anchor=(1.03, 1.0))
+            if kwargs['fig_right'] is None:
+                kwargs['fig_right'] = 0.75
+            if kwargs['fig_wspace'] is None:
+                kwargs['fig_wspace'] = 0.4
         elif kwargs['legend_on'] == "none" or kwargs['legend_on'] == "off":
-            pass
+            if kwargs['fig_wspace'] is None:
+                kwargs['fig_wspace'] = 0.4
         else:
-            ax[int(kwargs['legend_on'])-1].legend()
-        # Limits
-        for ax in fig.get_axes():
-            # TODO handle these in individual figures?
+            axes[int(kwargs['legend_on'])-1].legend(loc=kwargs['legend_loc'].replace("-"," "))
+        # Limits: only handle if not in figures
+        if kwargs['one_ymin'] is not None:
+            ax_no_touch = [ymin_tuple[0]-1 for ymin_tuple in kwargs['one_ymin']]
+        # TODO also guard ymin-eff for efficiency here
+        for i,ax in enumerate(axes):
             ax.set_xlim(kwargs['xmin'],  kwargs['xmax'])
-            ax.set_ylim(kwargs['ymin'],  kwargs['ymax'])
-            # This is handled in individual figures!  Too hard to handle limits reliably for everything
-            # if kwargs['logy']:
-            #     try:
-            #         ax.set_yscale('log')
-            #     except ValueError:
-            #         ax.set_yscale('symlog', linthresh=1e-1)
-        # Figure reshaping (TODO?)
-        #plt.subplots_adjust(wspace=0.4, right=0.75)
+            if not i in ax_no_touch:
+                ax.set_ylim(kwargs['ymin'],  kwargs['ymax'])
 
         # User tag (or file, if one file), then fn, then extension
         if len(results) == 1 and kwargs['tag'] == "compare":
@@ -189,7 +199,11 @@ def plot_results(plot_type, files, **kwargs):
         else:
             out_name = kwargs['tag'].rstrip("_")+"_"+plot_type
 
-        fig.savefig(out_name+(".pdf" if kwargs['pdf'] else ".png"), dpi=200)
+        # Reshape, output
+        plt.subplots_adjust(left=kwargs['fig_left'], right=kwargs['fig_right'],
+                            top=kwargs['fig_top'], bottom=kwargs['fig_bottom'],
+                            wspace=kwargs['fig_wspace'], hspace=kwargs['fig_hspace'])
+        fig.savefig(out_name+(".pdf" if kwargs['pdf'] else ".png"), dpi=kwargs['fig_dpi'])
         plt.close(fig)
 
 if __name__ == "__main__":

@@ -147,7 +147,8 @@ class AnaResults(object):
                     'Edot_5M': lambda diag: diag['Edot_5'],
                     'Ldot_5M': lambda diag: diag['Ldot_5'],
                     # For prettier names
-                    'u^phi': lambda diag: diag['u^3'],
+                    #'u^phi': lambda diag: diag['u^3'],
+                    'Pb': lambda diag: 0.5*diag['bsq'],
                     # Standard names for some EH fluxes
                     'phi_b_per': lambda diag: diag['Phi_b'] / np.sqrt(diag['Mdot']),
                     'phi_b': lambda diag: diag['Phi_b'] / np.sqrt(diag['avg_Mdot']),
@@ -495,6 +496,9 @@ class AnaResults(object):
         elif 'Theta_post' in dvar:
             ret_v = (self.get_dvar(ivar, dvar.replace('Theta_post','Pg')) /
                     self.get_dvar(ivar, dvar.replace('Theta_post','rho')))
+        elif dvar+'_notdisk' in self.dvars_present() and dvar+'_disk' in self.dvars_present():
+            ret_v = self.get_dvar(ivar, dvar+'_disk') + \
+                    self.get_dvar(ivar, dvar+'_notdisk')
 
         if ret_v is None:
             raise IOError("Can't find variable: {} as a function of {}".format(dvar, ivar))
@@ -534,8 +538,8 @@ class AnaResults(object):
         Allows negative tmin to specify a slice to the end of the run
         """
         if tmax is not None:
-            i_begin = i_of(self['t'], tmin)
-            i_end = i_of(self['t'], tmax)
+            i_begin = max(i_of(self['t'], tmin), 0)
+            i_end = max(i_of(self['t'], tmax), i_begin+1)
         elif tmin < 0:
             i_begin = i_of(self['t'], self['t'][-1] + tmin)
             i_end = None

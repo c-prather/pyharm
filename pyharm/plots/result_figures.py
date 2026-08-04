@@ -95,10 +95,10 @@ def _radial_profile(ax, result, var, **kwargs):
         max_this_invocation[var] = 0.
 
     # Get the times to average
-    avg_slice = _get_t_slice(result, kwargs['arange'])[1]
-    #print(result['t'][avg_slice].shape)
-    times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
-             round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
+    avg_slice = _get_t_slice(result, kwargs['arange'])
+    if not isinstance(avg_slice, slice):
+        avg_slice = avg_slice[1]
+
     # Get just the relevant radial slice so y-limits get set properly
     window = (kwargs['xmin'] if kwargs['xmin'] is not None else 1,
               kwargs['xmax'] if kwargs['xmax'] is not None else 500)
@@ -124,13 +124,15 @@ def _radial_profile(ax, result, var, **kwargs):
     else:
         ax.set_xlim(window[0], window[1])
 
+    # TODO only if ymin_prop?
     if not "beta" in var:
-        ax.set_ylim((kwargs['ymax']*kwargs['yprop'], np.abs(kwargs['ymax'])))
-    else:
-        ax.set_ylim((kwargs['ymax']*1e-10, kwargs['ymax']))
+        ax.set_ylim((kwargs['ymax']*kwargs['ymin_prop'], np.abs(kwargs['ymax'])))
+    else: # TODO ymin_prop_beta
+        ax.set_ylim((kwargs['ymax']*kwargs['ymin_prop']*kwargs['ymin_prop'], kwargs['ymax']))
 
-    if kwargs['logy']:
-        ax.set_yscale('log')
+    # Would take the option but pretty inconceivable not to want this. At least default
+    #if kwargs['logy']:
+    ax.set_yscale('log')
     if kwargs['logx']:
         ax.set_xscale('log')
 
@@ -148,36 +150,53 @@ def _plot_radial_averages(results, kwargs, vars, max_nx=4):
         for a,var in enumerate(vars):
             window = _radial_profile(ax[a], result, var, **kwargs)
 
-    plt.subplots_adjust(wspace=0.4)
+    if kwargs['fig_wspace'] is None:
+        kwargs['fig_wspace'] = 0.4
     return fig
 
 def radial_profiles(results, kwargs):
-    return _plot_radial_averages(results, kwargs, vars=('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^3'))
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-5
+    return _plot_radial_averages(results, kwargs, vars=('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^phi', 'beta_post', 'sigma_post'))
 
 def disk_radial_profiles(results, kwargs):
-    return _plot_radial_averages(results, kwargs, vars=('rho_disk', 'Pg_disk', 'b_disk', 'bsq_disk', 'Ptot_disk', 'u^phi_disk'))
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-5
+    return _plot_radial_averages(results, kwargs, vars=('rho_disk', 'Pg_disk', 'b_disk', 'bsq_disk',
+                                'Ptot_disk', 'u^phi_disk', 'beta_post_disk', 'sigma_post_disk'))
 
 def notdisk_radial_profiles(results, kwargs):
-    return _plot_radial_averages(results, kwargs, vars=('rho_notdisk', 'Pg_notdisk', 'b_notdisk', 'bsq_notdisk', 'Ptot_notdisk', 'u^phi_notdisk'))
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-5
+    return _plot_radial_averages(results, kwargs, vars=('rho_notdisk', 'Pg_notdisk', 'b_notdisk', 'bsq_notdisk',
+                                'Ptot_notdisk', 'u^phi_notdisk', 'beta_post_notdisk', 'sigma_post_notdisk'))
 
 def jet_radial_profiles(results, kwargs):
     # 'b^r_jet', 'b^th_jet', 'b^phi_jet',
-    kwargs['yprop'] = 1.e-5
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-5
     return _plot_radial_averages(results, kwargs, vars=('rho_jet', 'Pg_jet', 'u^r_jet', 'u^th_jet', 'u^phi_jet', 'b_jet', 'inv_beta_jet', 'Ptot_jet'))
 
 
 def radial_fluxes(results, kwargs):
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-2
     return _plot_radial_averages(results, kwargs, vars=('FE_all', 'FM_all', 'FL_all'))
 
 def disk_radial_fluxes(results, kwargs):
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-2
     return _plot_radial_averages(results, kwargs, vars=('FE_disk', 'FM_disk', 'FL_disk'))
 
 def notdisk_radial_fluxes(results, kwargs):
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-2
     return _plot_radial_averages(results, kwargs, vars=('FE_notdisk', 'FM_notdisk', 'FL_notdisk'))
 
 def jet_radial_fluxes(results, kwargs):
     # All fluxes defined positive-out -> positive where it matters, by default
-    kwargs['yprop'] = 1.e-2
+    if kwargs['ymin_prop'] is None:
+        kwargs['ymin_prop'] = 1.e-2
     return _plot_radial_averages(results, kwargs, vars=('Mdot_jet', 'P_jet', 'sqrt_Area_jet', 'P_EM_jet', 'P_PAKE_jet', 'P_EN_jet',), max_nx=3)
 
 
@@ -221,7 +240,8 @@ def _plot_hth_profiles(results, kwargs, vars, ylim=None):
         for a,var in enumerate(vars):
             window = _hth_profile(ax[a], result, var, ylim=ylim)
 
-    plt.subplots_adjust(right=0.6)
+    if kwargs['fig_right'] is None:
+        kwargs['fig_right'] = 0.6
     return fig
 
 def omega_bz(results, kwargs):
@@ -233,10 +253,6 @@ def omega_bz_std(results, kwargs):
 # TODO all the BZ types comparisons
 
 def _plot_time_evolution(ax, result, var, arange=None, print_arange=True, label=None, logy=False):
-    # TODO somehow make this less janky
-    #result.diag_fns['mdot'] = lambda diag: diag['Mdot']
-    #result.diag_fns['eff'] = lambda diag: diag['eff_jet50']
-
     data = result[f't/{var}']
 
     # TODO special-case somewhere else
@@ -247,6 +263,12 @@ def _plot_time_evolution(ax, result, var, arange=None, print_arange=True, label=
         time = result['diag/time']
     else:
         time = result['t']
+    
+    global max_this_invocation
+    if not 'tmin' in max_this_invocation or time[0] < max_this_invocation['tmin']:
+        max_this_invocation['tmin'] = time[0]
+    if not 'tmax' in max_this_invocation or time[-1] > max_this_invocation['tmax']:
+        max_this_invocation['tmax'] = time[-1]
 
     print(f"Plotting {var}: {data.shape} vs t: {time.shape}")
 
@@ -274,27 +296,45 @@ def _plot_time_evolution(ax, result, var, arange=None, print_arange=True, label=
     ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
     ax.grid(True)
 
-def _plot_time_evolutions(results, kwargs, vars):
+def _plot_time_evolutions(results, kwargs, vars, fig=None):
     if kwargs['per']:
         vars = [v+"_per" for v in vars]
-    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 10
-    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 10/4*len(vars)
-    fig, _ = plt.subplots(len(vars), 1, figsize=(xsize, ysize))
+    xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 5
+    ysize = float(kwargs['fig_y']) if kwargs['fig_y'] is not None else 1.5*len(vars)
+    if fig is None:
+        fig, _ = plt.subplots(len(vars), 1, figsize=(xsize, ysize))
     ax = fig.get_axes()
+
     for result in results:
         arange = kwargs['arange'] if 'arange' in kwargs else None
         for a,var in enumerate(vars):
             _plot_time_evolution(ax[a], result, var, arange=arange, print_arange=kwargs['show_avg'], logy=kwargs['logy'])
-            if kwargs['one_ymin'] is not None:
-                for ymin_tuple in kwargs['one_ymin']:
-                    if ymin_tuple[0] == a+1:
-                        ax[a].set_ylim((ymin_tuple[1], None))
+            if a < len(vars)-1:
+                ax[a].set_xticklabels([])
 
-    plt.subplots_adjust(wspace=0.4, right=0.75)
+        if kwargs['one_ymin'] is not None:
+            for ymin_tuple in kwargs['one_ymin']:
+                ax[ymin_tuple[0]-1].set_ylim((ymin_tuple[1], None))
+
+    # Ensure plot is exactly at simulation ends by default
+    if kwargs['xmin'] is None:
+        kwargs['xmin'] = max_this_invocation['tmin']
+    if kwargs['xmax'] is None:
+        kwargs['xmax'] = max_this_invocation['tmax']
+    print(f"Setting time range: {kwargs['xmin']} {kwargs['xmax']}")
+
     return fig
 
 def eh_fluxes(results, kwargs):
     return _plot_time_evolutions(results, kwargs, vars=('mdot', 'phi_b', 'spinup', 'eff'))
+
+def eh_fluxes_norms(results, kwargs):
+    for res in results: res.tag = "Per-step"
+    fig = _plot_time_evolutions(results, kwargs, vars=('mdot_per', 'phi_b_per', 'spinup_per', 'eff_per'))
+    for res in results: res.tag = "Smoothed"
+    _plot_time_evolutions(results, kwargs, vars=('smooth_mdot', 'smooth_phi_b', 'smooth_spinup', 'smooth_eff'), fig=fig)
+    for res in results: res.tag = "Back half"
+    return _plot_time_evolutions(results, kwargs, vars=('mdot', 'phi_b', 'spinup', 'eff'), fig=fig)
 
 def eh_fluxes_smooth(results, kwargs):
     return _plot_time_evolutions(results, kwargs, vars=('smooth_mdot', 'smooth_phi_b', 'smooth_spinup', 'smooth_eff'))
@@ -339,7 +379,8 @@ def edot_comparisons(results, kwargs):
             _plot_time_evolution(ax[a], result, var, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'], ymax=kwargs['ymax_eff'], label=var)
             ax[a].set_ylabel(result.tag)
 
-    plt.subplots_adjust(wspace=0.4)
+    if kwargs['fig_wspace'] is None:
+        kwargs['fig_wspace'] = 0.4
     return fig
 
 # TODO time versions to check whether a diag/analysis contains all timesteps
