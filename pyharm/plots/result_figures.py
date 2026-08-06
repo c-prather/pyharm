@@ -125,16 +125,20 @@ def _radial_profile(ax, result, var, **kwargs):
         ax.set_xlim(window[0], window[1])
 
     # TODO only if ymin_prop?
-    if not "beta" in var:
-        ax.set_ylim((kwargs['ymax']*kwargs['ymin_prop'], np.abs(kwargs['ymax'])))
-    else: # TODO ymin_prop_beta
-        ax.set_ylim((kwargs['ymax']*kwargs['ymin_prop']*kwargs['ymin_prop'], kwargs['ymax']))
+    # We set this according to the max, it might be nan/inf
+    if np.isfinite(kwargs['ymax']):
+        if kwargs['ymin_prop'] is None:
+            kwargs['ymin_prop'] = 1e-5
+        if not "beta" in var:
+            ax.set_ylim((kwargs['ymax']*kwargs['ymin_prop'], np.abs(kwargs['ymax'])))
+        else: # TODO ymin_prop_beta
+            ax.set_ylim((kwargs['ymax']*kwargs['ymin_prop']*kwargs['ymin_prop'], kwargs['ymax']))
 
-    # Would take the option but pretty inconceivable not to want this. At least default
+    # TODO as defaults instead
     #if kwargs['logy']:
     ax.set_yscale('log')
-    if kwargs['logx']:
-        ax.set_xscale('log')
+    #if kwargs['logx']:
+    ax.set_xscale('log')
 
     ax.set_xlabel(r"Radius [$r_g$]")
     ax.set_ylabel(pyharm.pretty(var)) #, rotation=0, ha='right')
@@ -155,26 +159,18 @@ def _plot_radial_averages(results, kwargs, vars, max_nx=4):
     return fig
 
 def radial_profiles(results, kwargs):
-    if kwargs['ymin_prop'] is None:
-        kwargs['ymin_prop'] = 1.e-5
     return _plot_radial_averages(results, kwargs, vars=('rho', 'Pg', 'b', 'bsq', 'Ptot', 'u^phi', 'beta_post', 'sigma_post'))
 
 def disk_radial_profiles(results, kwargs):
-    if kwargs['ymin_prop'] is None:
-        kwargs['ymin_prop'] = 1.e-5
     return _plot_radial_averages(results, kwargs, vars=('rho_disk', 'Pg_disk', 'b_disk', 'bsq_disk',
                                 'Ptot_disk', 'u^phi_disk', 'beta_post_disk', 'sigma_post_disk'))
 
 def notdisk_radial_profiles(results, kwargs):
-    if kwargs['ymin_prop'] is None:
-        kwargs['ymin_prop'] = 1.e-5
     return _plot_radial_averages(results, kwargs, vars=('rho_notdisk', 'Pg_notdisk', 'b_notdisk', 'bsq_notdisk',
                                 'Ptot_notdisk', 'u^phi_notdisk', 'beta_post_notdisk', 'sigma_post_notdisk'))
 
 def jet_radial_profiles(results, kwargs):
     # 'b^r_jet', 'b^th_jet', 'b^phi_jet',
-    if kwargs['ymin_prop'] is None:
-        kwargs['ymin_prop'] = 1.e-5
     return _plot_radial_averages(results, kwargs, vars=('rho_jet', 'Pg_jet', 'u^r_jet', 'u^th_jet', 'u^phi_jet', 'b_jet', 'inv_beta_jet', 'Ptot_jet'))
 
 
@@ -252,7 +248,8 @@ def omega_bz_std(results, kwargs):
 
 # TODO all the BZ types comparisons
 
-def _plot_time_evolution(ax, result, var, arange=None, print_arange=True, label=None, logy=False):
+def _plot_time_evolution(ax, result, var, arange=None, show_arange=True, label=None,
+                         logy=False, verbose=False, stats=False):
     data = result[f't/{var}']
 
     # TODO special-case somewhere else
@@ -270,7 +267,8 @@ def _plot_time_evolution(ax, result, var, arange=None, print_arange=True, label=
     if not 'tmax' in max_this_invocation or time[-1] > max_this_invocation['tmax']:
         max_this_invocation['tmax'] = time[-1]
 
-    print(f"Plotting {var}: {data.shape} vs t: {time.shape}")
+    if verbose:
+        print(f"Plotting {var}: {data.shape} vs t: {time.shape}")
 
     if label is None:
         label = result.tag
@@ -283,20 +281,33 @@ def _plot_time_evolution(ax, result, var, arange=None, print_arange=True, label=
         else:
             ax.set_yscale('log')
 
-    if arange is not None and print_arange:
+    if stats:
+        print(f"{result.tag} peak: {np.max(data)} at {np.argmax(np.squeeze(data))}")
+
+    if arange is not None:
         # Get the times to average
         avg_slice = _get_t_slice(result, arange)
         times = (round(time[avg_slice][0]/1000)*1000,
                 round(time[avg_slice][-1]/1000)*1000)
         avg = np.mean(data[avg_slice])
-        ax.hlines(avg, times[0], times[1], colors=pt[0].get_color(), linestyles='dashed')
-        ax.text(times[1], avg, f"{avg:.2f}")
+        if show_arange:
+            ax.hlines(avg, times[0], times[1], colors=pt[0].get_color(), linestyles='dashed')
+            ax.text(times[1], avg, f"{avg:.2f}")
+        if stats:
+            print(f"{result.tag} avg {times[0]}-{times[1]}: {avg}")
+
+
 
     # TODO only tilt long names
     ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
     ax.grid(True)
 
 def _plot_time_evolutions(results, kwargs, vars, fig=None):
+
+    # Default spacing
+    if kwargs['fig_left'] is None:
+        kwargs['fig_left'] = 0.22
+
     if kwargs['per']:
         vars = [v+"_per" for v in vars]
     xsize = float(kwargs['fig_x']) if kwargs['fig_x'] is not None else 5
@@ -308,20 +319,19 @@ def _plot_time_evolutions(results, kwargs, vars, fig=None):
     for result in results:
         arange = kwargs['arange'] if 'arange' in kwargs else None
         for a,var in enumerate(vars):
-            _plot_time_evolution(ax[a], result, var, arange=arange, print_arange=kwargs['show_avg'], logy=kwargs['logy'])
+            # TODO passthrough all kwargs?
+            _plot_time_evolution(ax[a], result, var, arange=arange, show_arange=kwargs['show_avg'],
+                                 logy=kwargs['logy'], verbose=kwargs['verbose'], stats=kwargs['stats'])
             if a < len(vars)-1:
                 ax[a].set_xticklabels([])
-
-        if kwargs['one_ymin'] is not None:
-            for ymin_tuple in kwargs['one_ymin']:
-                ax[ymin_tuple[0]-1].set_ylim((ymin_tuple[1], None))
 
     # Ensure plot is exactly at simulation ends by default
     if kwargs['xmin'] is None:
         kwargs['xmin'] = max_this_invocation['tmin']
     if kwargs['xmax'] is None:
         kwargs['xmax'] = max_this_invocation['tmax']
-    print(f"Setting time range: {kwargs['xmin']} {kwargs['xmax']}")
+    if kwargs['verbose']:
+        print(f"Setting time range: {kwargs['xmin']} {kwargs['xmax']}")
 
     return fig
 
@@ -365,7 +375,7 @@ def edot_versions(results, kwargs):
 
 
 def eh_phi_versions(results, kwargs):
-    return _plot_time_evolution(results, kwargs, vars=('phi_b', '2x_phi_b_lower', '2x_phi_b_upper', 'phi_b_hemispheres'))
+    return _plot_time_evolutions(results, kwargs, vars=('phi_b', '2x_phi_b_lower', '2x_phi_b_upper', 'phi_b_hemispheres'))
 
 def edot_comparisons(results, kwargs):
     vars = ('smooth_Edot_EH', 'smooth_Edot_5')
@@ -376,7 +386,9 @@ def edot_comparisons(results, kwargs):
     for var in vars:
         arange = kwargs['arange'] if 'arange' in kwargs else None
         for a,result in enumerate(results):
-            _plot_time_evolution(ax[a], result, var, per=kwargs['per'], arange=arange, print_arange=kwargs['show_avg'], ymax=kwargs['ymax_eff'], label=var)
+            _plot_time_evolution(ax[a], result, var, per=kwargs['per'], arange=arange,
+                                show_arange=kwargs['show_avg'], ymax=kwargs['ymax_eff'],
+                                label=var, verbose=kwargs['verbose'])
             ax[a].set_ylabel(result.tag)
 
     if kwargs['fig_wspace'] is None:

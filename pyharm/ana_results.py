@@ -147,7 +147,6 @@ class AnaResults(object):
                     'Edot_5M': lambda diag: diag['Edot_5'],
                     'Ldot_5M': lambda diag: diag['Ldot_5'],
                     # For prettier names
-                    #'u^phi': lambda diag: diag['u^3'],
                     'Pb': lambda diag: 0.5*diag['bsq'],
                     # Standard names for some EH fluxes
                     'phi_b_per': lambda diag: diag['Phi_b'] / np.sqrt(diag['Mdot']),
@@ -497,11 +496,13 @@ class AnaResults(object):
             ret_v = (self.get_dvar(ivar, dvar.replace('Theta_post','Pg')) /
                     self.get_dvar(ivar, dvar.replace('Theta_post','rho')))
         elif dvar+'_notdisk' in self.dvars_present() and dvar+'_disk' in self.dvars_present():
-            ret_v = self.get_dvar(ivar, dvar+'_disk') + \
-                    self.get_dvar(ivar, dvar+'_notdisk')
+            ret_v = (self.get_dvar(ivar, dvar+'_disk') + \
+                     self.get_dvar(ivar, dvar+'_notdisk')) / 2
+        elif dvar == 'u^phi': # Old name
+            ret_v = self.get_dvar(ivar, 'u^3')
 
         if ret_v is None:
-            raise IOError("Can't find variable: {} as a function of {}".format(dvar, ivar))
+            raise IOError(f"Could not find variable: {dvar} as a function of {ivar} in {self.fname}")
 
         self.cache[vname] = ret_v
         return ret_v
