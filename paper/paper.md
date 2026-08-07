@@ -22,11 +22,11 @@ bibliography: pyharm.bib
 
 `pyharm` is a scalable python library for plotting and analyzing some general-relativistic magnetohydrodynamic (GRMHD) simulations, especially those simulating matter around black holes.  It handles reading a number of different simulation snapshot formats, plotting basic and derived fluid properties in different spacetimes and coordinate systems, and computing arbitrary reductions across large datasets of fluid snapshots.
 
-# Statement of Need
+# Statement of need
 
 As large, complex 3D datasets, GRMHD simulation snapshots require sophisticated post-processing and plotting code in order to correctly interpret their data values.  Writing new plotting scripts from scratch takes time and effort, not to mention being bug-prone due to the overall complexity.  A framework which pre-defines variables and coordinates consistently saves time in understanding these datasets, and improves the quality of results by allowing fixes to be preserved in all future calculations.
 
-# State of the Field
+# State of the field
 
 Many plotting libraries and utilities exist for visualizing and analyzing eulerian hydrodynamics simulations at scale, e.g. [@ytPaper], [@visitPaper], [@paraviewPaper].  However, GRMHD in particular presents two unique challenges that make these tools difficult to use or wholly insufficient:
 
@@ -35,7 +35,7 @@ Many plotting libraries and utilities exist for visualizing and analyzing euleri
 
 Plotting scripts exist which natively support GRMHD grids and quantities, but are generally either private, or specialized to a particular code or style of GRMHD [@kuibitPaper].  `pyharm` attempts to support as many codes as possible.
 
-# Code Design
+# Software design
 
 The central class in pyharm is the `FluidState`, representing a snapshot of a GRMHD simulation at some point in time (either generated, memory-backed, or file-backed, generally the latter).  Data retrieval and manipulation are both done by means of the `__getitem__` function, allowing users to treat the object as a dictionary containing any desired derived variable. When a key is retrieved, e.g. `dump['beta']` for the plasma $\beta$ parameter (ratio of gas pressure to magnetic pressure), it is computed on the fly, returned, and cached in memory for the next use.  Quantities can be defined in terms of one another recursively, and thus the code avoids repeating common calculations.
 
@@ -47,7 +47,7 @@ While `pyharm` is designed first as a python library for user scripts, it has ga
 
 In addition to the main scripts, `pyharm` provides a number of small utilities for checking simulation logs for progress and errors, checking validity of simulation snapshots, or checking snapshots against one another.
 
-# Implementation Notes
+# Implementation notes
 
 `pyharm` is written in pure Python using `numpy`, `scipy`, and `matplotlib`.  As it is implemented purely with array operations, not loops, the code shares `numpy` and `scipy`'s good efficiency on single CPU cores.  Parallelizing operations on a single dump is not a goal of the code -- usually, compute-intensive operations are conducted across many dump files in a way which is substantially or wholly embarrassingly parallel.  Likewise, GPUs are not a priority as many operations are already significantly bottlenecked by file read speed.  Instead, `pyharm` achieves good speed mostly by avoiding unnecessary read and compute operations.
 
@@ -61,7 +61,7 @@ With these optimizations, a basic variable from a low-resolution (192x96x96 zone
 
 As primarily a plotting framework, most bugs or undesired behaviors in pyharm cannot be easily tested in an automated way.  However, calculations of physical quantities are tested against expectations, such as an example calculation of 4-vector quantities with known results.  "Golden file" regression tests of the calculation of basic reductions are also available, over an array of different file formats.
 
-# Research projects using `pyharm`
+# Research impact statement
 
 `pyharm` has been used in obtaining the results of many published papers, especially from the GRMHD code KHARMA [@Prather2025].  This includes collaboration papers from the EHT such as [@EHTM87V] and [@EHTSgrAV], and independent papers using KHARMA, e.g. most recently [@Thomas2026], [@bukowiecka2026] and [@stanway2026].
 
