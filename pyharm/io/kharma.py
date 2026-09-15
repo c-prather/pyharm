@@ -419,7 +419,7 @@ class KHARMAFile(DumpFile):
                 # assuming read_stride=1
                 out_slc = tuple([slice(out_slc[i].start, out_slc[i].stop + (params[f'n{i+1}'] > 1)) for i in range(len(out_slc))])
                 block_slc = tuple([slice(block_slc[i].start, block_slc[i].stop + (params[f'n{3-i}'] > 1)) for i in range(len(block_slc))])
-                print(out_slc, block_slc)
+                #print(out_slc, block_slc)
 
             if 'prims.rho' in fil.Variables:
                 if var not in fil.fid:
