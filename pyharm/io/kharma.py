@@ -226,6 +226,9 @@ class KHARMAFile(DumpFile):
         except:
             fil = phdf_old(self.fname)
 
+        # Our params
+        params = self.params
+
         # All primitive or conserved vars. Generally used
         # for converting file formats.
         if var == "prims" or var == "cons":
@@ -257,13 +260,27 @@ class KHARMAFile(DumpFile):
         # Try to get prims.B from cons.B (for e.g. KHARMA restarts)
         # Note B1,2,3->B,ind already so we have to reform cons.B1,2,3 (should take as arg)
         # We don't try this with other variables, one could maybe?
-        elif var in ["B", "prims.B"] and "prims.B" not in fil.Variables and "cons.B" in fil.Variables:
-            grid = Grid(self.params)
-            var_con = 'cons.B'+str(ind+1) if ind is not None else 'cons.B'
-            return self.read_var(var_con, **kwargs) / \
-                    grid['gdet'][grid.slices.geom_slc(slc)]
+        elif var in ["B", "prims.B"] and "prims.B" not in fil.Variables:
+            if "cons.B" in fil.Variables:
+                grid = Grid(self.params)
+                var_con = 'cons.B'+str(ind+1) if ind is not None else 'cons.B'
+                return self.read_var(var_con, **kwargs) / \
+                        grid['gdet'][grid.slices.geom_slc(slc)]
+            elif "cons.fB" in fil.Variables:
+                B_face = self.read_var('cons.fB', **kwargs)
+                print(B_face.shape)
+                if params['n3'] > 1:
+                    return np.stack([(B_face[0, 1:, :-1, :-1] + B_face[0, :-1, :-1, :-1]) / 2,
+                                    (B_face[1, :-1, 1:, :-1] + B_face[1, :-1, :-1, :-1]) / 2,
+                                    (B_face[2, :-1, :-1, 1:] + B_face[2, :-1, :-1, :-1]) / 2], axis=0)
+                elif params['n2'] > 1:
+                    return np.stack([(B_face[0, 1:, :-1, :] + B_face[0, :-1, :-1, :]) / 2,
+                                    (B_face[1, :-1, 1:, :] + B_face[1, :-1, :-1, :]) / 2,
+                                    B_face[2, :-1, :-1, :]], axis=0)
+                else:
+                    return np.stack([(B_face[0, 1:, :, :] + B_face[0, :-1, :, :]) / 2,
+                                    B_face[1, :-1, :, :], B_face[2, :-1, :, :]], axis=0)
 
-        params = self.params
         # Recall ng=0 if ghost_zones is False.  Thus this says:
         # if we want ghost zones, set them in nontrivial dimensions
         ng_ix = params['ng']
@@ -290,10 +307,13 @@ class KHARMAFile(DumpFile):
 
         if out is None:
             # Allocate the full output mesh size
+            # TODO(CEP) these are inexcusably delicate
             if "jcon" in var:
                 out = np.zeros((4, *out_shape), dtype=astype)
-            elif var.split(".")[-1] in ["B", "uvec"]: # We cache the whole thing even for an index
+            elif var.split(".")[-1] in ["B", "uvec"]:
                 out = np.zeros((3, *out_shape), dtype=astype)
+            elif var.split(".")[-1] in ["fB"]:
+                out = np.zeros((3, *[out_shape[i] + (params[f'n{i+1}'] > 1) for i in range(len(out_shape))]), dtype=astype)
             elif len(var) > 3 and var[-3] == "[" and var[-1] == "]":
                 # TODO(CEP) real shape
                 out = np.zeros((4, *out_shape), dtype=astype)
@@ -335,6 +355,13 @@ class KHARMAFile(DumpFile):
                 #print("Skipping block: ", b, " would be to location ", out_slc, " from portion ", fil_slc)
                 continue
             #print("Reading var ", var, " from block: ", b, " to location ", out_slc, " by reading block portion ", fil_slc)
+
+            # Read extra index for faces
+            if var == "cons.fB":
+                # assuming read_stride=1
+                out_slc = tuple([slice(out_slc[i].start, out_slc[i].stop + (params[f'n{i+1}'] > 1)) for i in range(len(out_slc))])
+                block_slc = tuple([slice(block_slc[i].start, block_slc[i].stop + (params[f'n{3-i}'] > 1)) for i in range(len(block_slc))])
+                print(out_slc, block_slc)
 
             if 'prims.rho' in fil.Variables:
                 if var not in fil.fid:
