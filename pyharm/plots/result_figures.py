@@ -242,6 +242,43 @@ def _plot_hth_profiles(results, kwargs, vars, ylim):
         kwargs['fig_right'] = 0.6
     return fig
 
+def _th_profile(ax, result, var, arange, print_time=False, plot_std=False, ylim=None):
+
+    # Get the times to average
+    avg_slice = result.get_time_slice(*arange)
+    if len(np.squeeze(result['t'][avg_slice]).shape) == 0:
+        return None
+    times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
+             round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
+
+    tyvals = result['tht/{}'.format(var)][avg_slice, :]
+
+    yvals = np.mean(tyvals, axis=0)
+    p = ax.plot(result['th'], yvals, label=result.tag)
+    if plot_std:
+        yerrs = np.std(tyvals, axis=0)
+        ax.fill_between(result['th'], yvals-yerrs, yvals+yerrs, alpha=0.5, color=p[0].get_color())
+
+    ax.set_xlabel(r"$\theta$")
+    ax.set_ylabel(pyharm.pretty(var), rotation=0, ha='right')
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.grid(True)
+
+def _plot_th_profiles(results, kwargs, vars, ylim):
+    # Radial profiles of variables
+    nx = min(len(vars), 4)
+    ny = (len(vars) - 1) // 4 + 1
+    fig, _ = plt.subplots(ny, nx, figsize=(5*nx+4,5*ny))
+    ax = fig.get_axes()
+    for result in results:
+        for a,var in enumerate(vars):
+            window = _th_profile(ax[a], result, var, ylim=ylim, arange=kwargs['arange'])
+
+    if kwargs['fig_right'] is None:
+        kwargs['fig_right'] = 0.6
+    return fig
+
 def omega_bz(results, kwargs):
     # TODO ylim in kwargs
     return _plot_hth_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
@@ -249,6 +286,11 @@ def omega_bz(results, kwargs):
 def omega_bz_std(results, kwargs):
     # TODO plot_std=True,
     return _plot_hth_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
+
+def omega_bz_full(results, kwargs):
+    # TODO ylim in kwargs
+    return _plot_th_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
+
 
 # TODO all the BZ types comparisons
 

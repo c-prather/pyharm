@@ -188,6 +188,8 @@ class AnaResults(object):
                     'Omega_H': lambda diag: diag.params['a'] / (2*diag['r_eh']),
                     'htht/omega_rel': lambda diag: diag['htht/omega'] / diag['Omega_H'],
                     'hth/omega_rel': lambda diag: diag['hth/omega'] / diag['Omega_H'],
+                    'tht/omega_rel': lambda diag: diag['tht/omega'] / diag['Omega_H'],
+                    'th/omega_rel': lambda diag: diag['th/omega'] / diag['Omega_H'],
                     # Profiles
                     'rt/FE_notdisk': lambda diag: diag['rt/FE_all'] - diag['rt/FE_disk'],
                     'rt/FM_notdisk': lambda diag: diag['rt/FM_all'] - diag['rt/FM_disk'],

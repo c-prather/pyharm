@@ -278,7 +278,7 @@ def movie(movie_types, paths, **kwargs):
                         # Record only the name, the AnaResults object is not pickle-able
                         kwargs['diag'] = fname
                         break
-                    except (IOError, pandas.errors.ParserError) as e:
+                    except (IOError, KeyError, pandas.errors.ParserError) as e:
                         print(e, file=sys.stderr)
                         continue
 

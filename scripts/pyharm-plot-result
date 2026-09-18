@@ -163,7 +163,7 @@ def plot_results(plot_type, files, **kwargs):
     if plot_type in local_fns.keys():
         figs = result_figures.__dict__[plot_type](results, kwargs=kwargs)
     else:
-        print("ERROR: Cannot make plot: {}".format(plot_type))
+        print(f"ERROR: Plot type not defined: {plot_type}")
         exit(-1)
 
     ## COMMON FORMATTING & LABELING
