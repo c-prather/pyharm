@@ -153,7 +153,9 @@ def omega_bz(dump, out, **kwargs):
     at_i = _get(kwargs, 'iEH') # At event horizon
     # Average the next 5 zones out from zone 5
     out['htht/omega'] = theta_profile(dump, 'F_0_1', at_i, 5) / theta_profile(dump, 'F_1_3', at_i, 5)
-    out['tht/omega'] = theta_profile(dump, 'F_0_1', at_i, 5, fold=False) / theta_profile(dump, 'F_1_3', at_i, 5, fold=False)    
+    out['tht/omega'] = theta_profile(dump, 'F_0_1', at_i, 5, fold=False) / theta_profile(dump, 'F_1_3', at_i, 5, fold=False)
+    out['tht/F01'] = theta_profile(dump, 'F_0_1', at_i, 5, fold=False)
+    out['tht/F13'] = theta_profile(dump, 'F_1_3', at_i, 5, fold=False)
 
     if _get(kwargs, 'tavgs') and out['t/is_avg']:
         out['hth/omega'] = out['htht/omega']

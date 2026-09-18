@@ -89,6 +89,8 @@ class InversionStatus(Enum):
     neg_rho = 5
     neg_u = 6
     neg_rhou = 7
+    floor = 8
+    bad_velocity = 9
 
 class FloorFlag_iharm3d(Enum):
     """Bit masks for HARM floor codes."""
@@ -106,23 +108,29 @@ class FloorFlag_KHARMA(Enum):
     Instead, we use bitflags, starting high enough that we can stick the enum in the bottom 5 bits
     See floors.hpp in KHARMA for explanations of the flags
     """
-    HIT_FLOOR_GEOM_RHO = 32
-    HIT_FLOOR_GEOM_U = 64
-    HIT_FLOOR_B_RHO = 128
-    HIT_FLOOR_B_U = 256
-    HIT_FLOOR_TEMP = 512
-    HIT_FLOOR_GAMMA = 1024
-    HIT_FLOOR_KTOT = 2048
+    GEOM_RHO = 2**6
+    GEOM_U = 2**7
+    B_RHO = 2**8
+    B_U = 2**9
+    TEMP = 2**10
+    GAMMA = 2**11
+    KTOT = 2**12
     #  Separate flags for when the floors are applied after reconstruction.
     #  Not yet used, as this will likely have some speed penalty paid even if
     #  the flags aren't written
-    HIT_FLOOR_GEOM_RHO_FLUX = 4096
-    HIT_FLOOR_GEOM_U_FLUX = 8192
+    GEOM_RHO_FLUX = 2**13
+    GEOM_U_FLUX = 2**14
     # Yet more flags for floors hit during inversion
-    HIT_FLOOR_INVERTER_RHO = 16384
-    HIT_FLOOR_INVERTER_U = 32768
-    HIT_FLOOR_INVERTER_GAMMA = 65536
-    HIT_FLOOR_INVERTER_U_MAX = 131072
+    FIXUP_ENERGY = 2**15
+    FIXUP_VEL = 2**16
+    FIXUP_VEL_FAILED = 2**17
+    FIXUP_VEL_GAMMA = 2**18
+    FIXUP_VEL_RANGE = 2**19
+    FIXUP_U = 2**20
+    FIXUP_U_FAILED = 2**21
+    FIXUP_U_RANGE = 2**22
+    FIXUP_RHO_DIRECT = 2**23
+    FIXUP_U_DIRECT = 2**24
 
 class Slices:
     """Object to hold a bunch of named slices.

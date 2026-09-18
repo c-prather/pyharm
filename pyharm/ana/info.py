@@ -53,7 +53,6 @@ class SimulationRun(object):
     """Class for storing information about a simulation as a whole
     """
     # Name, dtype, alignment
-    # dtypes: (t)ext, (f)loat, (e)xponential, (i)nt, (a)uto
     properties = {
         # Run parameters
         'run_name': ("", "S32", "l", None),
@@ -133,9 +132,9 @@ class SimulationRun(object):
                 self.logs = SimulationPrints(path)
             except Exception as e:
                 print(e)
-                self.logs = {}
+                self.logs = SimulationPrints()
         else:
-            self.logs = {}
+            self.logs = SimulationPrints()
 
         if ana_fname != "":
             try:
@@ -263,17 +262,18 @@ class SimulationPrints(object):
         'pflags_pct': lambda self: kio.job_flag_pct(self.last_lines, "pflag"),
     }
 
-    def __init__(self, path):
-        realpath = os.path.realpath(path)
-        self.loglist = glob.glob(os.path.join(realpath, "slurm-*.out"))
-        # Skip empty dirs
-        if len(self.loglist) == 0:
-            raise ValueError(f"No log files at path: {realpath}!")
+    def __init__(self, path=None):
+        if path is not None:
+            realpath = os.path.realpath(path)
+            self.loglist = glob.glob(os.path.join(realpath, "slurm-*.out"))
+            # Skip empty dirs
+            if len(self.loglist) == 0:
+                raise ValueError(f"No log files at path: {realpath}!")
 
-        self.loglist.sort(key=self.jobnum)
+            self.loglist.sort(key=self.jobnum)
 
-        # TODO arrange loading more
-        self.last_lines = kio.read_stdout(self.loglist[-1], -100)
+            # TODO arrange loading more
+            self.last_lines = kio.read_stdout(self.loglist[-1], -100)
 
     # We can't rely on touch times or lexical order
     def jobnum(self, fname):
