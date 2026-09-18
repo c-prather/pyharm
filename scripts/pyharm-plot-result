@@ -141,16 +141,16 @@ def plot_results(plot_type, files, **kwargs):
         for f, t in zip(files, tags):
             try:
                 results.append(pyharm.load_result(f, tag=t, avg_ends=kwargs['arange'], prefer_hst=kwargs['prefer_hst']))
-            except:
-                print(f"ERROR reading result file {f}, omitting!")
+            except Exception as e:
+                print(f"ERROR \"{e}\" reading result file {f}, omitting!")
     else:
         # Will be auto-tagged as folder names
         results = []
         for f in files:
             try:
                 results.append(pyharm.load_result(f, avg_ends=kwargs['arange'], prefer_hst=kwargs['prefer_hst']))
-            except:
-                print(f"ERROR reading result file {f}, omitting!")
+            except Exception as e:
+                print(f"ERROR \"{e}\" reading result file {f}, omitting!")
 
     ## CALL FUNCTION
     # Hack to call a function in result_figures by name
