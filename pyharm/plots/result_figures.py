@@ -205,7 +205,7 @@ def disk_velocity_profile(results, kwargs):
     return _plot_radial_averages(results, kwargs, vars=('u^phi_disk',))
 
 
-def _hth_profile(ax, result, var, arange=-1000, print_time=False, plot_std=False, ylim=None):
+def _hth_profile(ax, result, var, arange, print_time=False, plot_std=False, ylim=None):
 
     # Get the times to average
     avg_slice = result.get_time_slice(*arange)
@@ -228,7 +228,7 @@ def _hth_profile(ax, result, var, arange=-1000, print_time=False, plot_std=False
         ax.set_ylim(ylim)
     ax.grid(True)
 
-def _plot_hth_profiles(results, kwargs, vars, ylim=None):
+def _plot_hth_profiles(results, kwargs, vars, ylim):
     # Radial profiles of variables
     nx = min(len(vars), 4)
     ny = (len(vars) - 1) // 4 + 1
@@ -236,17 +236,19 @@ def _plot_hth_profiles(results, kwargs, vars, ylim=None):
     ax = fig.get_axes()
     for result in results:
         for a,var in enumerate(vars):
-            window = _hth_profile(ax[a], result, var, ylim=ylim)
+            window = _hth_profile(ax[a], result, var, ylim=ylim, arange=kwargs['arange'])
 
     if kwargs['fig_right'] is None:
         kwargs['fig_right'] = 0.6
     return fig
 
 def omega_bz(results, kwargs):
+    # TODO ylim in kwargs
     return _plot_hth_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
 
 def omega_bz_std(results, kwargs):
-    return _plot_hth_profiles(results, kwargs, ('omega_rel',), plot_std=True, ylim=(0, 1))
+    # TODO plot_std=True,
+    return _plot_hth_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
 
 # TODO all the BZ types comparisons
 
