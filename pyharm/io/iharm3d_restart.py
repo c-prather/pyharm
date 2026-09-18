@@ -174,12 +174,20 @@ def write_restart(dump, fname, astype=np.float64):
         else:
             outf['tlog'] = dump['t'] + 0.1
 
+        p = dump['rho'][np.newaxis, Ellipsis]
+        for var in ['u', 'uvec', 'B']:
+            new_var = dump[var]
+            if len(new_var.shape) < len(p.shape):
+                # Reshape to 4D if needed to append
+                new_var = new_var[np.newaxis, Ellipsis]
+            p = np.append(p, new_var, axis=0)
+
         # This will fetch and write all primitive variables,
         # sans ghost zones as is customary for iharm3d restart files
         G = dump.grid
         if G.NG > 0:
-            p = dump['prims'].astype(astype)
+            # Reshape rho to 4D by adding a rank in front for prim index
+            # TODO does not work for KHARMA-driver restarts or face-centered fields!
             outf["p"] = np.einsum("pijk->pkji", p[G.slices.allv + G.slices.bulk])
         else:
-            p = dump['prims'].astype(astype)
             outf["p"] = np.einsum("pijk->pkji", p)
