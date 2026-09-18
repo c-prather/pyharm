@@ -162,7 +162,10 @@ def pretty(var, segment=False):
                 # If it's a number the \text will choke
                 ret = pretty_dict[parts[0]] + r"_{" + str(int(parts[1])) + r"}"
             except:
-                ret = pretty_dict[parts[0]] + r"_\mathrm{" + "_".join(parts[1:]) + r"}"
+                if not r"_\mathrm{" in pretty_dict[parts[0]]:
+                    ret = pretty_dict[parts[0]] + r"_\mathrm{" + "_".join(parts[1:]) + r"}"
+                else:
+                    ret = r"\left[" + pretty_dict[parts[0]] + r"\right]_\mathrm{" + "_".join(parts[1:]) + r"}"
     
     if segment:
         return ret

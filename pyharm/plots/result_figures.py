@@ -265,15 +265,42 @@ def _th_profile(ax, result, var, arange, print_time=False, plot_std=False, ylim=
         ax.set_ylim(ylim)
     ax.grid(True)
 
-def _plot_th_profiles(results, kwargs, vars, ylim):
+def _th_quotient(ax, result, vars, arange, print_time=False, plot_std=False, ylim=None):
+
+    # Get the times to average
+    avg_slice = result.get_time_slice(*arange)
+    if len(np.squeeze(result['t'][avg_slice]).shape) == 0:
+        return None
+    times = (round(np.squeeze(result['t'][avg_slice])[0]/1000)*1000,
+             round(np.squeeze(result['t'][avg_slice])[-1]/1000)*1000)
+
+    tyvals1 = result['tht/{}'.format(vars[0])][avg_slice, :]
+    tyvals2 = result['tht/{}'.format(vars[1])][avg_slice, :]
+
+    yvals = np.mean(tyvals1, axis=0) / np.mean(tyvals2, axis=0) / result['Omega_H']
+
+    p = ax.plot(result['th'], yvals, label=result.tag)
+
+    ax.set_xlabel(r"$\theta$")
+    ax.set_ylabel(pyharm.pretty('omega_bz_rel'), rotation=0, ha='right')
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.grid(True)
+
+def _plot_th_profiles(results, kwargs, vars, ylim, divide_time_avgs=False):
     # Radial profiles of variables
-    nx = min(len(vars), 4)
-    ny = (len(vars) - 1) // 4 + 1
+    nplots = len(vars) if not divide_time_avgs else len(vars)//2
+    nx = min(nplots, 4)
+    ny = (nplots - 1) // 4 + 1
     fig, _ = plt.subplots(ny, nx, figsize=(5*nx+4,5*ny))
     ax = fig.get_axes()
     for result in results:
-        for a,var in enumerate(vars):
-            window = _th_profile(ax[a], result, var, ylim=ylim, arange=kwargs['arange'])
+        if divide_time_avgs:
+            # TODO pairs of vars, collective names
+            window = _th_quotient(ax[0], result, vars, ylim=ylim, arange=kwargs['arange'])
+        else:
+            for a,var in enumerate(vars):
+                window = _th_profile(ax[a], result, var, ylim=ylim, arange=kwargs['arange'])
 
     if kwargs['fig_right'] is None:
         kwargs['fig_right'] = 0.6
@@ -290,6 +317,14 @@ def omega_bz_std(results, kwargs):
 def omega_bz_full(results, kwargs):
     # TODO ylim in kwargs
     return _plot_th_profiles(results, kwargs, ('omega_rel',), ylim=(0, 1))
+
+def omega_bz_full_far(results, kwargs):
+    # TODO ylim in kwargs
+    return _plot_th_profiles(results, kwargs, ('omega_rel_far',), ylim=(0, 1))
+
+def omega_bz_full_stable(results, kwargs):
+    # TODO ylim in kwargs
+    return _plot_th_profiles(results, kwargs, ('F01', 'F13',), ylim=(0, 1), divide_time_avgs=True)
 
 
 # TODO all the BZ types comparisons

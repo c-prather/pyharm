@@ -364,7 +364,8 @@ def energies(fig, dump, diag, plotrc):
 def floors(fig, dump, diag, plotrc):
     """Plot which floor are hit where
     """
-    ax_slc = lambda i: plt.subplot(3, 5, i)
+    h, w = 4, 6
+    ax_slc = lambda i: plt.subplot(h, w, i)
     plotrc['xlabel'] = False
     plotrc['xticks'] = []
     plotrc['log'] = True
@@ -376,15 +377,15 @@ def floors(fig, dump, diag, plotrc):
     plotrc['log'] = False
     for i,ff in enumerate(FloorFlag_KHARMA):
         p = 2+i
-        plotrc['cbar'] = (p % 5 == 0)
-        if p <= 5:
+        plotrc['cbar'] = (p % w == 0)
+        if p <= w:
             plotrc['xlabel'] = False
             plotrc['xticks'] = []
         else:
             plotrc['xlabel'] = True
             plotrc['xticks'] = None
 
-        if p % 5 != 1:
+        if p % w != 1:
             plotrc['ylabel'] = False
             plotrc['yticks'] = []
         else:
@@ -399,7 +400,7 @@ def floors(fig, dump, diag, plotrc):
 def fails(fig, dump, diag, plotrc):
     """In-depth plots of inversion failures
     """
-    ax_slc = lambda i: plt.subplot(2, 4, i)
+    ax_slc = lambda i: plt.subplot(3, 4, i)
     plotrc['xlabel'] = False
     plotrc['xticks'] = []
     plotrc['log'] = True
@@ -409,7 +410,7 @@ def fails(fig, dump, diag, plotrc):
     plotrc['cmap'] = 'Reds'
     plotrc['sum'] = True
     plotrc['log'] = False
-    for i in range(1, 8):
+    for i,pf in enumerate(InversionStatus):
         p = 1+i
         plotrc['cbar'] = (p % 4 == 0)
         if p <= 4:
@@ -426,7 +427,7 @@ def fails(fig, dump, diag, plotrc):
             plotrc['ylabel'] = True
             plotrc['yticks'] = None
 
-        plot_xz(ax_slc(p), dump, dump['pflag'] == i, label=InversionStatus(i).name, **plotrc)
+        plot_xz(ax_slc(p), dump, dump['pflag'] == pf.value, label=pf.name, **plotrc)
     fig.subplots_adjust(hspace=0.1, wspace=0.12, left=0.05, right=0.95, bottom=0.05, top=0.92)
     fig.suptitle("t = {}, Total inversion failures: {}".format(int(dump['t']), np.sum(dump['pflag'] > 0)))
     return fig
