@@ -85,6 +85,7 @@ def get_fnames(path, prefer_iharm3d=False):
         files = np.sort(glob(os.path.join(path, scheme[0], scheme[1]+scheme[2])))
         if len(files) > 0:
             # Explicitly take out some common non-dump things in dump directories
+            # TODO(CEP) was there like a grid_vis.h5 in very old runs?
             files = [f for f in files if ("grid.h5" not in f) and ("_out" not in f)]
             # Unpack multiple tar files into a single run list. Only tars *or* unpacked files
             tar_contents = []
@@ -108,7 +109,7 @@ def get_fnames(path, prefer_iharm3d=False):
                 return files
             # Add 'final' IF it is later than the last existing file
             final_candidate = glob(os.path.join(path, scheme[0], "*.out*.final"+scheme[2]))
-            if len(final_candidate) > 0:
+            if len(final_candidate) > 0 and get_dump_time(final_candidate[0]) is not None:
                 if get_dump_time(final_candidate[0]) > get_dump_time(files[-1]):
                     files.append(final_candidate[0])
             return files

@@ -147,7 +147,7 @@ class AnaResults(object):
                     'Edot_5M': lambda diag: diag['Edot_5'],
                     'Ldot_5M': lambda diag: diag['Ldot_5'],
                     # For prettier names
-                    'u^phi': lambda diag: diag['u^3'],
+                    'Pb': lambda diag: 0.5*diag['bsq'],
                     # Standard names for some EH fluxes
                     'phi_b_per': lambda diag: diag['Phi_b'] / np.sqrt(diag['Mdot']),
                     'phi_b': lambda diag: diag['Phi_b'] / np.sqrt(diag['avg_Mdot']),
@@ -162,17 +162,25 @@ class AnaResults(object):
                     'edot': lambda diag: diag['Edot'] / diag['avg_Mdot'],
                     'ldot_per': lambda diag: diag['Ldot'] / diag['Mdot'],
                     'ldot': lambda diag: diag['Ldot'] / diag['avg_Mdot'],
-                    'spinup': lambda diag: (diag['Ldot'] - 2*diag.params['a']*diag['Edot']) / -diag['avg_Mdot'],
-                    'spinup_per': lambda diag: (diag['Ldot'] - 2*diag.params['a']*diag['Edot']) / -diag['Mdot'],
                     # Post-processing functions for fluxes
+                    # Spinup
+                    'spinup': lambda diag: diag['spinup_5EH'],
+                    'spinup_per': lambda diag: diag['spinup_5EH_per'],
+                    'spinup_55': lambda diag: (diag['Ldot_5'] - 2*diag.params['a']*diag['Edot_5']) / -diag['avg_Mdot_5'],
+                    'spinup_55_per': lambda diag: (diag['Ldot_5'] - 2*diag.params['a']*diag['Edot_5']) / -diag['Mdot_5'],
+                    'spinup_EHEH': lambda diag: (diag['Ldot_EH'] - 2*diag.params['a']*diag['Edot_EH']) / -diag['avg_Mdot_EH'],
+                    'spinup_EHEH_per': lambda diag: (diag['Ldot_EH'] - 2*diag.params['a']*diag['Edot_EH']) / -diag['Mdot_EH'],
+                    'spinup_5EH': lambda diag: (diag['Ldot_5'] - 2*diag.params['a']*diag['Edot_5']) / -diag['avg_Mdot_EH'],
+                    'spinup_5EH_per': lambda diag: (diag['Ldot_5'] - 2*diag.params['a']*diag['Edot_5']) / -diag['Mdot_EH'],
+                    # Jet efficiency
                     'eff': lambda diag: diag['eff_5EH'],
                     'eff_per': lambda diag: diag['eff_5EH_per'],
                     'eff_55': lambda diag: -(diag['Edot_5'] - diag['Mdot_5']) / diag['avg_Mdot_5'],
                     'eff_55_per': lambda diag: -(diag['Edot_5'] - diag['Mdot_5']) / diag['Mdot_5'],
                     'eff_EHEH': lambda diag: -(diag['Edot_EH'] - diag['Mdot_EH']) / diag['avg_Mdot_EH'],
                     'eff_EHEH_per': lambda diag: -(diag['Edot_EH'] - diag['Mdot_EH']) / diag['Mdot_EH'],
-                    'eff_5EH': lambda diag: -(diag['Edot_5'] - diag['Mdot_EH']) / diag['avg_Mdot_EH'],
-                    'eff_5EH_per': lambda diag: -(diag['Edot_5'] - diag['Mdot_EH']) / diag['Mdot_EH'],
+                    'eff_5EH': lambda diag: -(diag['Edot_5'] - diag['Mdot_5']) / diag['avg_Mdot_EH'],
+                    'eff_5EH_per': lambda diag: -(diag['Edot_5'] - diag['Mdot_5']) / diag['Mdot_EH'],
                     'eff_jet50': lambda diag: np.abs(diag['rt/P_jet'][:,i_of(diag['r'], 50.)] - diag['rt/Mdot_jet'][:,i_of(diag['r'], 50.)]) / diag['avg_mdot'],
                     'eff_jet50_per': lambda diag: np.abs(diag['rt/P_jet'][:,i_of(diag['r'], 50.)] - diag['rt/Mdot_jet'][:,i_of(diag['r'], 50.)]) / diag['mdot'],
                     # BZ rotation rate
@@ -184,6 +192,7 @@ class AnaResults(object):
                     'rt/FE_notdisk': lambda diag: diag['rt/FE_all'] - diag['rt/FE_disk'],
                     'rt/FM_notdisk': lambda diag: diag['rt/FM_all'] - diag['rt/FM_disk'],
                     'rt/FL_notdisk': lambda diag: diag['rt/FL_all'] - diag['rt/FL_disk'],
+
                     }
     # How to load variables from a KHARMA .hst file dictionary
     diags_hst = {'t': lambda diag: diag.file['diag/time'],
@@ -223,11 +232,21 @@ class AnaResults(object):
         
 
     def __init__(self, fname, tag=None, avg_is_smooth=False, avg_ends=None, prefer_hst=False):
+        # Must specify tags manually on results w/no file
         if tag is not None:
             self.tag = tag
         else:
-            # If there's no explicit tag, use our folder's name
-            self.tag = os.path.basename(os.path.dirname(os.path.realpath(fname)))
+            dirname = os.path.dirname(os.path.realpath(fname))
+            # Must be first line of file, one line only
+            if os.path.exists(os.path.join(dirname, "tag.tex")):
+                with open(os.path.join(dirname, "tag.tex")) as tagfile:
+                    self.tag = tagfile.readline()[:-1]
+            elif os.path.exists(os.path.join(dirname, "name.txt")):
+                with open(os.path.join(dirname, "name.txt")) as tagfile:
+                    self.tag = tagfile.readline()[:-1]
+            else:
+                # If there's no explicit tag, use our folder's name
+                self.tag = os.path.basename(os.path.dirname(os.path.realpath(fname)))
         self.cache = {}
         self.avg_is_smooth = avg_is_smooth
         self.avg_ends = avg_ends
@@ -476,7 +495,7 @@ class AnaResults(object):
             elif self.avg_ends is not None and "t" in ivar:
                 #print(f"Using averaging range {self.avg_ends} for {ivar},{dvar}")
                 dvals = self.get_dvar(ivar, dvar[4:])
-                time_slice = self.get_time_slice(self.avg_ends[0], self.avg_ends[1])
+                time_slice = self.get_time_slice(*self.avg_ends)
                 ret_v = np.mean(dvals[time_slice]) * np.ones_like(dvals)
             else:
                 dvals = self.get_dvar(ivar, dvar[4:])
@@ -495,9 +514,14 @@ class AnaResults(object):
         elif 'Theta_post' in dvar:
             ret_v = (self.get_dvar(ivar, dvar.replace('Theta_post','Pg')) /
                     self.get_dvar(ivar, dvar.replace('Theta_post','rho')))
+        elif dvar+'_notdisk' in self.dvars_present() and dvar+'_disk' in self.dvars_present():
+            ret_v = (self.get_dvar(ivar, dvar+'_disk') + \
+                     self.get_dvar(ivar, dvar+'_notdisk')) / 2
+        elif dvar == 'u^phi': # Old name
+            ret_v = self.get_dvar(ivar, 'u^3')
 
         if ret_v is None:
-            raise IOError("Can't find variable: {} as a function of {}".format(dvar, ivar))
+            raise IOError(f"Could not find variable: {dvar} as a function of {ivar} in {self.fname}")
 
         self.cache[vname] = ret_v
         return ret_v
@@ -528,14 +552,32 @@ class AnaResults(object):
                 keylist.append(ivar+"/"+dvar)
         return keylist
     
+# def _get_t_slice(result, arange):
+#     """Returns a time slice corresponding to the tuple or number 'arange'
+#     (optionally negative-indexed from sim end)
+#     """
+#     if isinstance(arange, slice) or isinstance(arange, tuple) or isinstance(arange, list):
+#         try:
+#             return result.get_time_slice(arange[0], arange[1])
+#         except KeyError:
+#             return None
+#     elif arange is not None:
+#         # Min only, negative offset from end accepted
+#         try:
+#             return result.get_time_slice(arange)
+#         except KeyError:
+#             return None
+#     else:
+#         return True, slice(None)
+
     def get_time_slice(self, tmin, tmax=None):
         """Get the indices in the (correct, potentially reordered) timeline
         corresponding to stated tmin, tmax.
         Allows negative tmin to specify a slice to the end of the run
         """
         if tmax is not None:
-            i_begin = i_of(self['t'], tmin)
-            i_end = i_of(self['t'], tmax)
+            i_begin = max(i_of(self['t'], tmin), 0)
+            i_end = max(i_of(self['t'], tmax), i_begin+1)
         elif tmin < 0:
             i_begin = i_of(self['t'], self['t'][-1] + tmin)
             i_end = None

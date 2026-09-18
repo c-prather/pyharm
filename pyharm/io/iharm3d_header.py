@@ -196,7 +196,10 @@ def read_hdr(grp):
         params['vnum'] = params['version'].split("v")[1]
     else:
         # Illinois versioning scheme
-        params['codename'], params['codestatus'], params['vnum'] = params['version'].split("-")
+        try:
+            params['codename'], params['codestatus'], params['vnum'] = params['version'].split("-")
+        except ValueError:
+            params['codename'], params['codestatus'], params['vnum'] = "KHARMA", "dev", "2026.9"
     
     # Split vnum into a list of each point-separated number
     params['vnum'] = [int(x) for x in params['vnum'].split(".")]
