@@ -202,7 +202,10 @@ def read_hdr(grp):
             params['codename'], params['codestatus'], params['vnum'] = "KHARMA", "dev", "2026.9"
     
     # Split vnum into a list of each point-separated number
-    params['vnum'] = [int(x) for x in params['vnum'].split(".")]
+    try:
+        params['vnum'] = [int(x) for x in params['vnum'].split(".")]
+    except ValueError:
+        params['vnum'] = [6, 0]
 
     # iharm3d-specific workarounds:
     if params['codename'] == "iharm":

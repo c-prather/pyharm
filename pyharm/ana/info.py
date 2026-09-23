@@ -55,6 +55,7 @@ class SimulationRun(object):
     # Name, dtype, alignment
     properties = {
         # Run parameters
+        'folder_name': ("Folder", "S32", "l", None),
         'run_name': ("", "S32", "l", None),
         'sim_name': ("Name", "S32", "l", None),
         'code': ("Simulation code", "S32", "l", None),
@@ -407,13 +408,13 @@ class SimulationDump(object):
     def table_row(self, cols):
         row = []
         for col in cols:
-            row.append(self.calcs[col](self.dump))
+            row.append(self.calcs[col](self))
         return row
 
     def __str__(self):
         table = Table(names=("key", "Name", "Value"), dtype=('S16', 'S32', 'S32'))
         for key in self.mid_set:
-            table.add_row([key, self.properties[key][0], str(self.calcs[key](self.dump))])
+            table.add_row([key, self.properties[key][0], str(self.calcs[key](self))])
         ret = io.StringIO()
         ascii.write(table, ret, format='fixed_width_no_header')
         return ret.getvalue()
